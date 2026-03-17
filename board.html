@@ -1,27 +1,122 @@
-<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>บอร์ดรวม</title><link rel="stylesheet" href="styles.css"></head><body>
-<header><div class="wrap row space"><div><strong>บอร์ดรวม FO → HK</strong> <span id="welcome" class="small"></span></div><div class="row"><a href="fo.html" class="ghost">หน้า FO</a><a href="hk.html" class="ghost">หน้า HK</a><a href="board.html" class="ghost">บอร์ดรวม</a><button class="ghost" id="logoutBtn">ออกจากระบบ</button></div></div></header>
-<div class="wrap filters"><div class="panel"><div class="grid grid-4"><div><label>Outlet</label><select id="fOutlet"><option value="">ทั้งหมด</option><option>Hotel</option><option>Villa</option><option>Public Area</option><option>Laundry</option></select></div><div><label>ตึก</label><select id="fBuilding"><option value="">ทั้งหมด</option><option>A</option><option>B</option><option>C</option><option>D</option></select></div><div><label>ชั้น</label><select id="fFloor"><option value="">ทั้งหมด</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option></select></div><div><label>สถานะ / ห้อง</label><div class="grid grid-2"><select id="fStatus"><option value="">ทั้งหมด</option></select><input id="fRoom" placeholder="ค้นหา A105"></div></div></div></div></div>
-<div class="wrap"><div class="stats" style="margin:16px 0"><div class="stat"><div class="small">งานทั้งหมด</div><div class="n" id="sAll">0</div></div><div class="stat"><div class="small">ยังไม่รับงาน</div><div class="n" id="sNew">0</div></div><div class="stat"><div class="small">กำลังทำ</div><div class="n" id="sProg">0</div></div><div class="stat"><div class="small">FO รอปิดงาน</div><div class="n" id="sDone">0</div></div></div><div id="board" class="board"></div></div>
-<dialog id="taskDialog"><div class="body"><div id="taskDetail"></div><div class="actions"><button class="ghost" onclick="document.getElementById('taskDialog').close()">ปิด</button></div></div></dialog>
-<script src="firebase-config.js"></script><script src="users-config.js"></script><script src="firebase-helpers.js"></script><script src="common.js"></script>
+<!doctype html><html lang="th"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>บอร์ดรวม</title><link rel="stylesheet" href="styles.css"></head><body>
+<header><div class="wrap row space">
+  <div><strong>บอร์ดรวม FO → HK</strong> <span id="welcome" class="small"></span></div>
+  <div class="row" id="navLinks"></div>
+</div></header>
+
+<div class="wrap filters">
+  <div class="panel">
+    <div class="grid grid-4">
+      <div><label>Outlet</label><select id="fOutlet"><option value="">ทั้งหมด</option><option>Hotel</option><option>Villa</option><option>Public Area</option><option>Laundry</option></select></div>
+      <div><label>ตึก</label><select id="fBuilding"><option value="">ทั้งหมด</option><option>A</option><option>B</option><option>C</option><option>D</option></select></div>
+      <div><label>ชั้น</label><select id="fFloor"><option value="">ทั้งหมด</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option></select></div>
+      <div><label>สถานะ / ห้อง</label><div class="grid grid-2"><select id="fStatus"><option value="">ทั้งหมด</option></select><input id="fRoom" placeholder="ค้นหา A105"></div></div>
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="stats" style="margin:16px 0">
+    <div class="stat"><div class="small">งานทั้งหมด</div><div class="n" id="sAll">0</div></div>
+    <div class="stat"><div class="small">ยังไม่รับงาน</div><div class="n" id="sNew">0</div></div>
+    <div class="stat"><div class="small">กำลังทำ</div><div class="n" id="sProg">0</div></div>
+    <div class="stat"><div class="small">FO รอปิดงาน</div><div class="n" id="sDone">0</div></div>
+  </div>
+  <div id="board" class="board"></div>
+</div>
+
+<dialog id="taskDialog">
+  <div class="body">
+    <div id="taskDetail"></div>
+    <div class="actions"><button class="ghost" onclick="document.getElementById('taskDialog').close()">ปิด</button></div>
+  </div>
+</dialog>
+
+<script src="firebase-config.js"></script>
+<script src="users-config.js"></script>
+<script src="firebase-helpers.js"></script>
+<script src="common.js"></script>
 <script>
-const session=requireRole(['fo','hk','supervisor']);
-document.getElementById('welcome').textContent='— '+session.name+' ('+session.role+')';
-document.getElementById('logoutBtn').onclick=logout;
-STATUSES.forEach(s=>{const op=document.createElement('option');op.value=s;op.textContent=s;document.getElementById('fStatus').appendChild(op)});
-['fOutlet','fBuilding','fFloor','fStatus','fRoom'].forEach(id=>document.getElementById(id).addEventListener('input',()=>render()));
-function getFilters(){return{outlet:document.getElementById('fOutlet').value,building:document.getElementById('fBuilding').value,floor:document.getElementById('fFloor').value,status:document.getElementById('fStatus').value,room:document.getElementById('fRoom').value.trim()}}
-function card(t){return `<article class="task"><h4>${escapeHtml(t.title)}</h4><div class="meta">${escapeHtml(taskLocationText(t))}</div><div class="meta">FO: ${escapeHtml(t.requestedBy||'-')} • HK: ${escapeHtml(t.assignee||'-')}</div><div class="badges">${statusBadge(t)}</div><div class="actions"><button onclick="openTask('${t.id}')">ดูรายละเอียด</button></div></article>`}
-let latestTasks=[];
-async function render(tasksOverride){
-  latestTasks=tasksOverride||await getTasks();
-  const filtered=applyBoardFilters(latestTasks,getFilters());
-  document.getElementById('sAll').textContent=filtered.length;
-  document.getElementById('sNew').textContent=filtered.filter(t=>t.status==='New from FO').length;
-  document.getElementById('sProg').textContent=filtered.filter(t=>['Accepted by HK','In Progress'].includes(t.status)).length;
-  document.getElementById('sDone').textContent=filtered.filter(t=>t.status==='Done by HK').length;
-  document.getElementById('board').innerHTML=STATUSES.map(s=>{const items=filtered.filter(t=>t.status===s);return `<section class="column"><h3>${s} <span class="small">(${items.length})</span></h3>${items.map(card).join('')||'<div class="small">ไม่มีงาน</div>'}</section>`}).join('');
+const session = requireRole(['fo','hk','supervisor']);
+document.getElementById('welcome').textContent = '— ' + session.name + ' (' + session.role + ')';
+document.getElementById('logoutBtn')?.addEventListener('click', logout);
+
+const nav = document.getElementById('navLinks');
+if (session.role === 'fo') {
+  nav.innerHTML = '<a href="fo.html" class="ghost">หน้า FO</a><a href="board.html" class="ghost">บอร์ดรวม</a><button class="ghost" id="logoutBtn">ออกจากระบบ</button>';
+} else if (session.role === 'hk') {
+  nav.innerHTML = '<a href="hk.html" class="ghost">หน้า HK</a><a href="board.html" class="ghost">บอร์ดรวม</a><button class="ghost" id="logoutBtn">ออกจากระบบ</button>';
+} else {
+  nav.innerHTML = '<a href="supervisor.html" class="ghost">Supervisor</a><a href="board.html" class="ghost">บอร์ดรวม</a><button class="ghost" id="logoutBtn">ออกจากระบบ</button>';
 }
-window.openTask=async id=>{await renderTaskDetail(id,'taskDetail');document.getElementById('taskDialog').showModal();};
-(async()=>{await seedData();await render();if(isFirebaseReady()){const wait=setInterval(()=>{if(window.firebaseHelpers?.subscribe){clearInterval(wait);window.firebaseHelpers.subscribe(render)}},500)}})();
-</script></body></html>
+document.getElementById('logoutBtn').onclick = logout;
+
+STATUSES.forEach(s => {
+  const op = document.createElement('option');
+  op.value = s;
+  op.textContent = s;
+  document.getElementById('fStatus').appendChild(op);
+});
+
+['fOutlet','fBuilding','fFloor','fStatus','fRoom'].forEach(id => {
+  document.getElementById(id).addEventListener('input', () => render());
+});
+
+function getFilters(){
+  return {
+    outlet: document.getElementById('fOutlet').value,
+    building: document.getElementById('fBuilding').value,
+    floor: document.getElementById('fFloor').value,
+    status: document.getElementById('fStatus').value,
+    room: document.getElementById('fRoom').value.trim()
+  };
+}
+
+function card(t){
+  return `<article class="task">
+    <h4>${escapeHtml(t.title)}</h4>
+    <div class="meta">${escapeHtml(taskLocationText(t))}</div>
+    <div class="meta">FO: ${escapeHtml(t.requestedBy||'-')} • HK: ${escapeHtml(t.assignee||'-')}</div>
+    <div class="badges">${statusBadge(t)}</div>
+    <div class="actions"><button onclick="openTask('${t.id}')">ดูรายละเอียด</button></div>
+  </article>`;
+}
+
+let latestTasks = [];
+
+async function render(tasksOverride){
+  latestTasks = tasksOverride || await getTasks();
+  const filtered = applyBoardFilters(latestTasks, getFilters());
+
+  document.getElementById('sAll').textContent = filtered.length;
+  document.getElementById('sNew').textContent = filtered.filter(t => t.status === 'New from FO').length;
+  document.getElementById('sProg').textContent = filtered.filter(t => ['Accepted by HK','In Progress'].includes(t.status)).length;
+  document.getElementById('sDone').textContent = filtered.filter(t => t.status === 'Done by HK').length;
+
+  document.getElementById('board').innerHTML = STATUSES.map(s => {
+    const items = filtered.filter(t => t.status === s);
+    return `<section class="column"><h3>${s} <span class="small">(${items.length})</span></h3>${items.map(card).join('') || '<div class="small">ไม่มีงาน</div>'}</section>`;
+  }).join('');
+}
+
+window.openTask = async function(id){
+  await renderTaskDetail(id, 'taskDetail');
+  document.getElementById('taskDialog').showModal();
+};
+
+(async()=>{
+  await seedData();
+  await render();
+  if (isFirebaseReady()) {
+    const wait = setInterval(() => {
+      if (window.firebaseHelpers?.subscribe) {
+        clearInterval(wait);
+        window.firebaseHelpers.subscribe(render);
+      }
+    }, 500);
+  }
+})();
+</script>
+</body></html>
