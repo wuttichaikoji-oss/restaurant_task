@@ -1,17 +1,12 @@
 <!doctype html><html lang="th"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>FO Request Page</title><link rel="stylesheet" href="styles.css"></head><body>
+<title>Front Office</title><link rel="stylesheet" href="styles.css"></head><body>
 <header><div class="wrap row space">
-  <div><strong>Front Office</strong> <span id="welcome" class="small"></span></div>
-  <div class="row">
-    <a href="fo.html" class="ghost">หน้า FO</a>
-    <a href="board.html" class="ghost">บอร์ดรวม</a>
-    <button class="ghost" id="logoutBtn">ออกจากระบบ</button>
-  </div>
+  <div><div class="top-title">FRONT OFFICE</div><div id="welcome" class="small"></div></div>
+  <div class="row"><a href="fo.html" class="ghost">หน้า FO</a><a href="board.html" class="ghost">บอร์ดรวม</a><a href="log.html" class="ghost">LOG / Report</a><button class="ghost" id="logoutBtn">ออกจากระบบ</button></div>
 </div></header>
-
 <div class="wrap grid grid-2">
-  <div class="panel"><h2 style="margin-top:0">เปิดงานให้ HouseKeeping</h2>
+  <div class="panel"><h2 class="section-title">เปิดงานให้ HouseKeeping</h2>
     <form id="taskForm" class="grid">
       <div><label>ชื่องาน</label><input id="title" required></div>
       <div><label>รายละเอียด</label><textarea id="desc"></textarea></div>
@@ -26,66 +21,33 @@
         <div><label>สถานะห้อง</label><select id="roomStatus"><option>Vacant Dirty</option><option>Vacant Clean</option><option>Inspected</option><option>Occupied</option><option>OOO</option></select></div>
         <div><label>กำหนดเสร็จ</label><input id="dueAt" type="datetime-local"></div>
       </div>
-      <div class="grid grid-2">
-        <div><label>Push แจ้งเตือน</label><select id="pushEnabled"><option value="true">เปิด</option><option value="false">ปิด</option></select></div>
-        <div></div>
-      </div>
       <button class="good">ส่งงานไป HK</button>
     </form>
   </div>
-  <div class="panel"><h2 style="margin-top:0">งานที่ FO เปิด</h2><div id="foTasks"></div></div>
+  <div class="panel"><h2 class="section-title">งานที่ FO เปิด</h2><div id="foTasks"></div></div>
 </div>
-
 <dialog id="taskDialog"><div class="body"><div id="taskDetail"></div><div class="actions"><button class="ghost" onclick="document.getElementById('taskDialog').close()">ปิด</button></div></div></dialog>
-
 <script src="firebase-config.js"></script><script src="users-config.js"></script><script src="firebase-helpers.js"></script><script src="common.js"></script>
 <script>
 const session=requireRole('fo');
-document.getElementById('welcome').textContent='— '+session.name;
+document.getElementById('welcome').textContent='ผู้ใช้งาน: '+session.name;
 document.getElementById('logoutBtn').onclick=logout;
 document.getElementById('dueAt').value=nowIsoLocal();
-
-async function render(tasksOverride){
-  const tasks=(tasksOverride||await getTasks()).filter(t=>t.requestedBy===session.name);
-  document.getElementById('foTasks').innerHTML = tasks.map(t=>`<article class="task"><h4>${escapeHtml(t.title)}</h4><div class="meta">${escapeHtml(taskLocationText(t))}</div><div class="meta">ผู้รับงาน HK: ${escapeHtml(t.assignee||'-')} • สถานะ: ${escapeHtml(t.status)}</div><div class="badges">${statusBadge(t)}</div><div class="actions"><button onclick="openTask('${t.id}')">ดู</button><button class="good" ${t.status==='Done by HK'?'':'disabled'} onclick="setStatus('${t.id}','Closed by FO')">ปิดงาน</button><button class="warn" ${t.status==='Done by HK'?'':'disabled'} onclick="setStatus('${t.id}','Rejected / Rework')">ตีกลับ</button></div></article>`).join('')||'<div class="small">ยังไม่มีงาน</div>';
+async function render(dataOverride){
+  const data=dataOverride||await getData();
+  const tasks=(data.tasks||[]).filter(t=>t.requestedBy===session.name);
+  document.getElementById('foTasks').innerHTML = tasks.map(t=>`<article class="task"><h4>${escapeHtml(t.title)}</h4><div class="meta">${escapeHtml(taskLocationText(t))}</div><div class="meta">HK: ${escapeHtml(t.assignee||'-')} • สถานะ: ${escapeHtml(t.status)}</div><div class="badges">${statusBadge(t)}</div><div class="actions"><button onclick="openTask('${t.id}')">ดู</button><button class="good" ${t.status==='Done by HK'?'':'disabled'} onclick="closeJob('${t.id}')">Close job by FO</button></div></article>`).join('')||'<div class="small">ยังไม่มีงาน</div>';
 }
-window.openTask=async id=>{await renderTaskDetail(id,'taskDetail');document.getElementById('taskDialog').showModal();};
-window.setStatus=async (id,status)=>{const tasks=await getTasks();const t=tasks.find(x=>x.id===id);if(!t)return;t.status=status;t.comments||=[];t.comments.unshift({at:new Date().toISOString(),by:session.name,text:status==='Closed by FO'?'FO ปิดงานแล้ว':'FO ตีกลับให้แก้ไข'});await updateTask(t);await render();};
-
+window.openTask=async id=>{await renderTaskDetail(id,'taskDetail','tasks');document.getElementById('taskDialog').showModal();};
+window.closeJob=async id=>{await closeTaskToLog(id, session.name); await render();};
 document.getElementById('taskForm').addEventListener('submit',async e=>{
   e.preventDefault();
   const roomInput=document.getElementById('roomNumber').value.trim().toUpperCase();
-  const buildingMatch = roomInput.match(/^[A-Z]/);
-  const building = buildingMatch ? buildingMatch[0] : '';
-  const floor = roomInput.length >= 2 ? roomInput[1] : '';
-  const task={
-    id:uid(),
-    title:document.getElementById('title').value.trim(),
-    desc:document.getElementById('desc').value.trim(),
-    outlet:document.getElementById('outlet').value,
-    building,
-    floor,
-    roomNumber: roomInput,
-    room: roomInput,
-    department:'Front Office',
-    taskType:document.getElementById('taskType').value,
-    requestedBy:session.name,
-    assignee:document.getElementById('assignee').value.trim(),
-    priority:document.getElementById('priority').value,
-    dueAt:document.getElementById('dueAt').value,
-    roomStatus:document.getElementById('roomStatus').value,
-    pushEnabled:document.getElementById('pushEnabled').value==='true',
-    status:'New from FO',
-    images:[],
-    comments:[{at:new Date().toISOString(),by:session.name,text:'FO เปิดงานใหม่'}],
-    createdBy:session.name,
-    createdAt:new Date().toISOString()
-  };
+  const task={id:uid(),title:document.getElementById('title').value.trim(),desc:document.getElementById('desc').value.trim(),outlet:document.getElementById('outlet').value,roomNumber:roomInput,room:roomInput,department:'Front Office',taskType:document.getElementById('taskType').value,requestedBy:session.name,assignee:document.getElementById('assignee').value.trim(),priority:document.getElementById('priority').value,dueAt:document.getElementById('dueAt').value,roomStatus:document.getElementById('roomStatus').value,pushEnabled:true,status:'New from FO',images:[],comments:[{at:new Date().toISOString(),by:session.name,text:'FO เปิดงานใหม่'}],createdBy:session.name,createdAt:new Date().toISOString()};
   await updateTask(task);
   document.getElementById('taskForm').reset();
   document.getElementById('dueAt').value=nowIsoLocal();
   await render();
 });
-
 (async()=>{await seedData();await render();if(isFirebaseReady()){const wait=setInterval(()=>{if(window.firebaseHelpers?.subscribe){clearInterval(wait);window.firebaseHelpers.subscribe(render)}},500)}})();
 </script></body></html>

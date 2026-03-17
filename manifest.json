@@ -1,10 +1,10 @@
 {
-  "name": "FO to HK Workflow v1.8",
-  "short_name": "FO-HK v1.8",
+  "name": "HOUSEKEEPING TASK v1.9",
+  "short_name": "HK TASK",
   "start_url": "index.html",
   "display": "standalone",
-  "background_color": "#f4f6fb",
-  "theme_color": "#0f172a",
+  "background_color": "#0b0b0d",
+  "theme_color": "#0b0b0d",
   "icons": [
     {
       "src": "icon-192.png",

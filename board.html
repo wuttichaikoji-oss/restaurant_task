@@ -1,99 +1,38 @@
 <!doctype html><html lang="th"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>HOUSEKEEPING TASK</title>
-<link rel="stylesheet" href="styles.css"></head><body>
-<header>
-  <div class="wrap row space">
-    <div>
-      <div class="top-title">HOUSEKEEPING TASK</div>
-      <div id="welcome" class="small"></div>
-    </div>
-    <div class="row" id="navLinks"></div>
-  </div>
-</header>
-
+<title>HOUSEKEEPING TASK</title><link rel="stylesheet" href="styles.css"></head><body>
+<header><div class="wrap row space">
+  <div><div class="top-title">HOUSEKEEPING TASK</div><div id="welcome" class="small"></div></div>
+  <div class="row" id="navLinks"></div>
+</div></header>
 <div class="wrap">
   <div class="stats">
     <div class="stat"><div class="small">งานทั้งหมด</div><div class="n" id="sAll">0</div></div>
-    <div class="stat"><div class="small">ยังไม่รับงาน</div><div class="n" id="sNew">0</div></div>
-    <div class="stat"><div class="small">กำลังทำ</div><div class="n" id="sProg">0</div></div>
-    <div class="stat"><div class="small">รอปิดงาน</div><div class="n" id="sDone">0</div></div>
+    <div class="stat"><div class="small">New from FO</div><div class="n" id="sNew">0</div></div>
+    <div class="stat"><div class="small">In Progress</div><div class="n" id="sProg">0</div></div>
+    <div class="stat"><div class="small">Done by HK</div><div class="n" id="sDone">0</div></div>
   </div>
-
   <div id="board" class="board"></div>
 </div>
-
-<dialog id="taskDialog">
-  <div class="body">
-    <div id="taskDetail"></div>
-    <div class="actions">
-      <button class="ghost" onclick="document.getElementById('taskDialog').close()">ปิด</button>
-    </div>
-  </div>
-</dialog>
-
-<script src="firebase-config.js"></script>
-<script src="users-config.js"></script>
-<script src="firebase-helpers.js"></script>
-<script src="common.js"></script>
+<dialog id="taskDialog"><div class="body"><div id="taskDetail"></div><div class="actions"><button class="ghost" onclick="document.getElementById('taskDialog').close()">ปิด</button></div></div></dialog>
+<script src="firebase-config.js"></script><script src="users-config.js"></script><script src="firebase-helpers.js"></script><script src="common.js"></script>
 <script>
 const session = requireRole(['fo','hk','supervisor']);
 document.getElementById('welcome').textContent = 'ผู้ใช้งาน: ' + session.name + ' (' + session.role + ')';
-
 const nav = document.getElementById('navLinks');
-if (session.role === 'fo') {
-  nav.innerHTML = '<a href="fo.html" class="ghost">หน้า FO</a><a href="board.html" class="ghost">บอร์ดรวม</a><button class="ghost" id="logoutBtn">ออกจากระบบ</button>';
-} else if (session.role === 'hk') {
-  nav.innerHTML = '<a href="hk.html" class="ghost">หน้า HK</a><a href="board.html" class="ghost">บอร์ดรวม</a><button class="ghost" id="logoutBtn">ออกจากระบบ</button>';
-} else {
-  nav.innerHTML = '<a href="supervisor.html" class="ghost">Supervisor</a><a href="board.html" class="ghost">บอร์ดรวม</a><button class="ghost" id="logoutBtn">ออกจากระบบ</button>';
-}
+if (session.role === 'fo') nav.innerHTML = '<a href="fo.html" class="ghost">หน้า FO</a><a href="board.html" class="ghost">บอร์ดรวม</a><a href="log.html" class="ghost">LOG / Report</a><button class="ghost" id="logoutBtn">ออกจากระบบ</button>';
+else if (session.role === 'hk') nav.innerHTML = '<a href="hk.html" class="ghost">หน้า HK</a><a href="board.html" class="ghost">บอร์ดรวม</a><a href="log.html" class="ghost">LOG / Report</a><button class="ghost" id="logoutBtn">ออกจากระบบ</button>';
+else nav.innerHTML = '<a href="supervisor.html" class="ghost">Supervisor</a><a href="board.html" class="ghost">บอร์ดรวม</a><a href="log.html" class="ghost">LOG / Report</a><button class="ghost" id="logoutBtn">ออกจากระบบ</button>';
 document.getElementById('logoutBtn').onclick = logout;
-
-function card(t){
-  return `<article class="task">
-    <h4>${escapeHtml(t.title)}</h4>
-    <div class="meta">${escapeHtml(taskLocationText(t))}</div>
-    <div class="meta">FO: ${escapeHtml(t.requestedBy||'-')}</div>
-    <div class="meta">HK: ${escapeHtml(t.assignee||'-')}</div>
-    <div class="badges">${statusBadge(t)}</div>
-    <div class="actions"><button class="good" onclick="openTask('${t.id}')">ดูรายละเอียด</button></div>
-  </article>`;
-}
-
-async function render(tasksOverride){
-  const tasks = tasksOverride || await getTasks();
-
+function card(t){return `<article class="task"><h4>${escapeHtml(t.title)}</h4><div class="meta">${escapeHtml(taskLocationText(t))}</div><div class="meta">FO: ${escapeHtml(t.requestedBy||'-')}</div><div class="meta">HK: ${escapeHtml(t.assignee||'-')}</div><div class="badges">${statusBadge(t)}</div><div class="actions"><button class="good" onclick="openTask('${t.id}')">ดูรายละเอียด</button></div></article>`;}
+async function render(dataOverride){
+  const data=dataOverride||await getData(); const tasks=data.tasks||[];
   document.getElementById('sAll').textContent = tasks.length;
-  document.getElementById('sNew').textContent = tasks.filter(t => t.status === 'New from FO').length;
-  document.getElementById('sProg').textContent = tasks.filter(t => ['Accepted by HK','In Progress'].includes(t.status)).length;
-  document.getElementById('sDone').textContent = tasks.filter(t => t.status === 'Done by HK').length;
-
-  document.getElementById('board').innerHTML = STATUSES.map(s => {
-    const items = tasks.filter(t => t.status === s);
-    return `<section class="column">
-      <h3>${s} <span class="small">(${items.length})</span></h3>
-      ${items.map(card).join('') || '<div class="small">ไม่มีงาน</div>'}
-    </section>`;
-  }).join('');
+  document.getElementById('sNew').textContent = tasks.filter(t=>t.status==='New from FO').length;
+  document.getElementById('sProg').textContent = tasks.filter(t=>t.status==='In Progress').length;
+  document.getElementById('sDone').textContent = tasks.filter(t=>t.status==='Done by HK').length;
+  document.getElementById('board').innerHTML = STATUSES.map(s=>`<section class="column"><h3>${s} <span class="small">(${tasks.filter(t=>t.status===s).length})</span></h3>${tasks.filter(t=>t.status===s).map(card).join('') || '<div class="small">ไม่มีงาน</div>'}</section>`).join('');
 }
-
-window.openTask = async function(id){
-  await renderTaskDetail(id, 'taskDetail');
-  document.getElementById('taskDialog').showModal();
-};
-
-(async()=>{
-  await seedData();
-  await render();
-  if (isFirebaseReady()) {
-    const wait = setInterval(() => {
-      if (window.firebaseHelpers?.subscribe) {
-        clearInterval(wait);
-        window.firebaseHelpers.subscribe(render);
-      }
-    }, 500);
-  }
-})();
-</script>
-</body></html>
+window.openTask=async id=>{await renderTaskDetail(id,'taskDetail','tasks');document.getElementById('taskDialog').showModal();};
+(async()=>{await seedData();await render();if(isFirebaseReady()){const wait=setInterval(()=>{if(window.firebaseHelpers?.subscribe){clearInterval(wait);window.firebaseHelpers.subscribe(render)}},500)}})();
+</script></body></html>

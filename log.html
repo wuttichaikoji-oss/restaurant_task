@@ -1,0 +1,42 @@
+<!doctype html><html lang="th"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LOG / REPORT</title><link rel="stylesheet" href="styles.css"></head><body>
+<header><div class="wrap row space">
+  <div><div class="top-title">LOG / REPORT</div><div id="welcome" class="small"></div></div>
+  <div class="row" id="navLinks"></div>
+</div></header>
+<div class="wrap">
+  <div class="stats">
+    <div class="stat"><div class="small">งานปิดแล้วทั้งหมด</div><div class="n" id="rAll">0</div></div>
+    <div class="stat"><div class="small">เวลาเฉลี่ย (นาที)</div><div class="n" id="rAvg">0</div></div>
+    <div class="stat"><div class="small">ปิดงานวันนี้</div><div class="n" id="rToday">0</div></div>
+    <div class="stat"><div class="small">งานเร่งด่วนที่ปิดแล้ว</div><div class="n" id="rUrgent">0</div></div>
+  </div>
+  <div class="panel">
+    <h2 class="section-title">ประวัติงานที่ถูก Close job by FO แล้ว</h2>
+    <div id="logList"></div>
+  </div>
+</div>
+<dialog id="taskDialog"><div class="body"><div id="taskDetail"></div><div class="actions"><button class="ghost" onclick="document.getElementById('taskDialog').close()">ปิด</button></div></div></dialog>
+<script src="firebase-config.js"></script><script src="users-config.js"></script><script src="firebase-helpers.js"></script><script src="common.js"></script>
+<script>
+const session = requireRole(['fo','hk','supervisor']);
+document.getElementById('welcome').textContent = 'ผู้ใช้งาน: ' + session.name + ' (' + session.role + ')';
+const nav = document.getElementById('navLinks');
+if (session.role === 'fo') nav.innerHTML = '<a href="fo.html" class="ghost">หน้า FO</a><a href="board.html" class="ghost">บอร์ดรวม</a><a href="log.html" class="ghost">LOG / Report</a><button class="ghost" id="logoutBtn">ออกจากระบบ</button>';
+else if (session.role === 'hk') nav.innerHTML = '<a href="hk.html" class="ghost">หน้า HK</a><a href="board.html" class="ghost">บอร์ดรวม</a><a href="log.html" class="ghost">LOG / Report</a><button class="ghost" id="logoutBtn">ออกจากระบบ</button>';
+else nav.innerHTML = '<a href="supervisor.html" class="ghost">Supervisor</a><a href="board.html" class="ghost">บอร์ดรวม</a><a href="log.html" class="ghost">LOG / Report</a><button class="ghost" id="logoutBtn">ออกจากระบบ</button>';
+document.getElementById('logoutBtn').onclick = logout;
+function isToday(d){ if(!d) return false; const a=new Date(d), b=new Date(); return a.toDateString()===b.toDateString(); }
+async function render(dataOverride){
+  const data=dataOverride||await getData(); const logs=data.logs||[];
+  const avg = logs.length ? Math.round(logs.reduce((s,x)=>s+(x.totalMinutes||0),0)/logs.length) : 0;
+  document.getElementById('rAll').textContent = logs.length;
+  document.getElementById('rAvg').textContent = avg;
+  document.getElementById('rToday').textContent = logs.filter(x=>isToday(x.closedAt)).length;
+  document.getElementById('rUrgent').textContent = logs.filter(x=>x.priority==='Urgent').length;
+  document.getElementById('logList').innerHTML = logs.map(t=>`<article class="task"><h4>${escapeHtml(t.title)}</h4><div class="meta">${escapeHtml(taskLocationText(t))}</div><div class="meta">FO: ${escapeHtml(t.requestedBy||'-')} • HK: ${escapeHtml(t.assignee||'-')}</div><div class="meta">เปิด: ${fmtDate(t.createdAt)} • ปิด: ${fmtDate(t.closedAt)} • เวลา: ${t.totalMinutes||0} นาที</div><div class="badges">${statusBadge(t)}</div><div class="actions"><button class="good" onclick="openLog('${t.id}')">ดูรายละเอียด</button></div></article>`).join('') || '<div class="small">ยังไม่มี log</div>';
+}
+window.openLog=async id=>{await renderTaskDetail(id,'taskDetail','logs');document.getElementById('taskDialog').showModal();};
+(async()=>{await seedData();await render();if(isFirebaseReady()){const wait=setInterval(()=>{if(window.firebaseHelpers?.subscribe){clearInterval(wait);window.firebaseHelpers.subscribe(render)}},500)}})();
+</script></body></html>

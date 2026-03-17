@@ -1,12 +1,17 @@
-<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>HK Action Page</title><link rel="stylesheet" href="styles.css"></head><body>
-<header><div class="wrap row space"><div><strong>HouseKeeping</strong> <span id="welcome" class="small"></span></div><div class="row"><a href="hk.html" class="ghost">หน้า HK</a><a href="board.html" class="ghost">บอร์ดรวม</a><button class="ghost" id="logoutBtn">ออกจากระบบ</button></div></div></header>
+<!doctype html><html lang="th"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HouseKeeping</title><link rel="stylesheet" href="styles.css"></head><body>
+<header><div class="wrap row space">
+  <div><div class="top-title">HOUSEKEEPING</div><div id="welcome" class="small"></div></div>
+  <div class="row"><a href="hk.html" class="ghost">หน้า HK</a><a href="board.html" class="ghost">บอร์ดรวม</a><a href="log.html" class="ghost">LOG / Report</a><button class="ghost" id="logoutBtn">ออกจากระบบ</button></div>
+</div></header>
 <div class="wrap grid grid-2">
-  <div class="panel"><h2 style="margin-top:0">งานของ HK</h2><div id="hkTasks"></div></div>
-  <div class="panel"><h2 style="margin-top:0">อัปเดตงาน / ส่งงานกลับ FO</h2>
+  <div class="panel"><h2 class="section-title">งานของ HK</h2><div id="hkTasks"></div></div>
+  <div class="panel"><h2 class="section-title">อัปเดตงาน</h2>
     <form id="submitForm" class="grid">
       <div><label>เลือกงาน</label><select id="taskId"></select></div>
-      <div><label>เปลี่ยนสถานะ</label><select id="status"><option>Accepted by HK</option><option>In Progress</option><option>Done by HK</option></select></div>
-      <div><label>คอมเมนต์อัปเดต</label><textarea id="comment" placeholder="เช่น รับงานแล้ว / ทำเสร็จแล้ว"></textarea></div>
+      <div><label>เปลี่ยนสถานะ</label><select id="status"><option>In Progress</option><option>Done by HK</option></select></div>
+      <div><label>คอมเมนต์อัปเดต</label><textarea id="comment" placeholder="เช่น เริ่มทำงานแล้ว / ทำเสร็จแล้ว"></textarea></div>
       <div><label>อัปโหลดรูปผลงาน</label><input id="images" type="file" accept="image/*" multiple></div>
       <button class="good">บันทึกและส่งงาน</button>
     </form>
@@ -16,35 +21,31 @@
 <script src="firebase-config.js"></script><script src="users-config.js"></script><script src="firebase-helpers.js"></script><script src="common.js"></script>
 <script>
 const session=requireRole('hk');
-document.getElementById('welcome').textContent='— '+session.name;
+document.getElementById('welcome').textContent='ผู้ใช้งาน: '+session.name;
 document.getElementById('logoutBtn').onclick=logout;
-async function visibleTasks(){
-  const tasks=await getTasks();
-  return tasks.filter(t=>!t.assignee || t.assignee===session.name || t.status==='New from FO');
+async function visibleTasks(dataOverride){
+  const data=dataOverride||await getData();
+  return (data.tasks||[]).filter(t=>!t.assignee || t.assignee===session.name || t.status==='New from FO');
 }
-async function render(tasksOverride){
-  const tasks=tasksOverride||await visibleTasks();
-  document.getElementById('hkTasks').innerHTML = tasks.map(t=>`<article class="task"><h4>${escapeHtml(t.title)}</h4><div class="meta">${escapeHtml(taskLocationText(t))}</div><div class="meta">ผู้เปิดงาน FO: ${escapeHtml(t.requestedBy||'-')} • สถานะ: ${escapeHtml(t.status)}</div><div class="badges">${statusBadge(t)}</div><div class="actions"><button onclick="openTask('${t.id}')">ดู</button><button class="good" onclick="quickUpdate('${t.id}','Accepted by HK')">รับงาน</button><button class="secondary" onclick="quickUpdate('${t.id}','In Progress')">เริ่มทำ</button><button class="warn" onclick="quickUpdate('${t.id}','Done by HK')">ส่งกลับ FO</button></div></article>`).join('')||'<div class="small">ยังไม่มีงาน</div>';
+async function render(dataOverride){
+  const tasks=await visibleTasks(dataOverride);
+  document.getElementById('hkTasks').innerHTML = tasks.map(t=>`<article class="task"><h4>${escapeHtml(t.title)}</h4><div class="meta">${escapeHtml(taskLocationText(t))}</div><div class="meta">FO: ${escapeHtml(t.requestedBy||'-')} • สถานะ: ${escapeHtml(t.status)}</div><div class="badges">${statusBadge(t)}</div><div class="actions"><button onclick="openTask('${t.id}')">ดู</button><button class="good" onclick="quickStart('${t.id}')">In Progress</button><button class="warn" onclick="quickDone('${t.id}')">Done by HK</button></div></article>`).join('')||'<div class="small">ยังไม่มีงาน</div>';
   document.getElementById('taskId').innerHTML = tasks.map(t=>`<option value="${t.id}">${escapeHtml(t.title)} (${escapeHtml(t.room||'-')})</option>`).join('');
 }
-window.openTask=async id=>{await renderTaskDetail(id,'taskDetail');document.getElementById('taskDialog').showModal();};
-window.quickUpdate=async (id,status)=>{const tasks=await getTasks();const t=tasks.find(x=>x.id===id);if(!t)return;t.status=status;t.assignee=session.name;t.comments||=[];t.comments.unshift({at:new Date().toISOString(),by:session.name,text:status==='Accepted by HK'?'HK รับงานแล้ว':status==='In Progress'?'HK กำลังดำเนินการ':'HK ทำเสร็จ ส่งกลับ FO'});await updateTask(t);await render();};
+window.openTask=async id=>{await renderTaskDetail(id,'taskDetail','tasks');document.getElementById('taskDialog').showModal();};
+window.quickStart=async id=>{const tasks=await getTasks();const t=tasks.find(x=>x.id===id);if(!t)return;t.status='In Progress';t.assignee=session.name;if(!t.startedAt)t.startedAt=new Date().toISOString();t.comments||=[];t.comments.unshift({at:new Date().toISOString(),by:session.name,text:'HK เริ่มดำเนินการ'});await updateTask(t);await render();};
+window.quickDone=async id=>{const tasks=await getTasks();const t=tasks.find(x=>x.id===id);if(!t)return;t.status='Done by HK';t.assignee=session.name;if(!t.startedAt)t.startedAt=new Date().toISOString();t.doneAt=new Date().toISOString();t.comments||=[];t.comments.unshift({at:new Date().toISOString(),by:session.name,text:'HK ทำเสร็จแล้ว'});await updateTask(t);await render();};
 document.getElementById('submitForm').addEventListener('submit',async e=>{
   e.preventDefault();
-  const id=document.getElementById('taskId').value;
-  const tasks=await getTasks();
-  const t=tasks.find(x=>x.id===id);if(!t)return;
-  t.status=document.getElementById('status').value;
-  t.assignee=session.name;
-  t.images||=[];
-  const imgs=await readFiles(document.getElementById('images').files);
-  t.images.unshift(...imgs);
+  const id=document.getElementById('taskId').value; const tasks=await getTasks(); const t=tasks.find(x=>x.id===id); if(!t)return;
+  const status=document.getElementById('status').value;
+  t.status=status; t.assignee=session.name;
+  if(status==='In Progress' && !t.startedAt) t.startedAt=new Date().toISOString();
+  if(status==='Done by HK'){ if(!t.startedAt) t.startedAt=new Date().toISOString(); t.doneAt=new Date().toISOString(); }
+  t.images||=[]; const imgs=await readFiles(document.getElementById('images').files); t.images.unshift(...imgs);
   const comment=document.getElementById('comment').value.trim();
-  if(comment){t.comments||=[];t.comments.unshift({at:new Date().toISOString(),by:session.name,text:comment});}
-  await updateTask(t);
-  document.getElementById('submitForm').reset();
-  await render();
-  alert('บันทึกเรียบร้อย');
+  t.comments||=[]; if(comment){t.comments.unshift({at:new Date().toISOString(),by:session.name,text:comment});}
+  await updateTask(t); document.getElementById('submitForm').reset(); await render(); alert('บันทึกเรียบร้อย');
 });
-(async()=>{await seedData();await render();if(isFirebaseReady()){const wait=setInterval(()=>{if(window.firebaseHelpers?.subscribe){clearInterval(wait);window.firebaseHelpers.subscribe(async()=>render(await visibleTasks()))}},500)}})();
+(async()=>{await seedData();await render();if(isFirebaseReady()){const wait=setInterval(()=>{if(window.firebaseHelpers?.subscribe){clearInterval(wait);window.firebaseHelpers.subscribe(render)}},500)}})();
 </script></body></html>

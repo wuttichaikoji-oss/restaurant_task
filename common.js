@@ -1,6 +1,6 @@
 
-const STORAGE_KEY='hkfo_tasks_v1_8', SESSION_KEY='hkfo_session_v1_8';
-const STATUSES=['New from FO','Accepted by HK','In Progress','Done by HK','Closed by FO','Rejected / Rework'];
+const STORAGE_KEY='hk_tasks_v1_9', SESSION_KEY='hk_session_v1_9';
+const STATUSES=['New from FO','In Progress','Done by HK'];
 const USERS=window.APP_USERS||[];
 const fmtDate=d=>d?new Date(d).toLocaleString('th-TH'):'-';
 const uid=()=>Math.random().toString(36).slice(2,10);
@@ -30,40 +30,86 @@ function requireRole(roles){
   }
   return s;
 }
-function loadLocalTasks(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]')}catch{return []}}
-function saveLocalTasks(tasks){localStorage.setItem(STORAGE_KEY,JSON.stringify(tasks))}
+function loadLocalData(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||'{"tasks":[],"logs":[]}')}catch{return {"tasks":[],"logs":[]}}}
+function saveLocalData(data){localStorage.setItem(STORAGE_KEY,JSON.stringify(data))}
 function isFirebaseReady(){return !!window.FIREBASE_ENABLED&&!!window.firebaseHelpers}
-async function getTasks(){return isFirebaseReady()?await window.firebaseHelpers.getTasks():loadLocalTasks()}
-async function saveTasks(tasks){if(isFirebaseReady())return await window.firebaseHelpers.replaceAllTasks(tasks);saveLocalTasks(tasks)}
-async function updateTask(task){if(isFirebaseReady())return await window.firebaseHelpers.upsertTask(task);const tasks=loadLocalTasks();const i=tasks.findIndex(t=>t.id===task.id);if(i>=0)tasks[i]=task;else tasks.unshift(task);saveLocalTasks(tasks)}
-async function deleteTaskById(id){if(isFirebaseReady())return await window.firebaseHelpers.deleteTask(id);saveLocalTasks(loadLocalTasks().filter(t=>t.id!==id))}
+async function getData(){return isFirebaseReady()?await window.firebaseHelpers.getData():loadLocalData()}
+async function saveData(data){if(isFirebaseReady())return await window.firebaseHelpers.replaceAllData(data);saveLocalData(data)}
+async function getTasks(){const d=await getData();return d.tasks||[]}
+async function getLogs(){const d=await getData();return d.logs||[]}
+async function updateTask(task){
+  if(isFirebaseReady()) return await window.firebaseHelpers.upsertTask(task);
+  const d=loadLocalData(); const i=d.tasks.findIndex(t=>t.id===task.id);
+  if(i>=0)d.tasks[i]=task; else d.tasks.unshift(task);
+  saveLocalData(d);
+}
+async function deleteTaskById(id){
+  if(isFirebaseReady()) return await window.firebaseHelpers.deleteTask(id);
+  const d=loadLocalData(); d.tasks=d.tasks.filter(t=>t.id!==id); saveLocalData(d);
+}
+async function addLog(logItem){
+  if(isFirebaseReady()) return await window.firebaseHelpers.addLog(logItem);
+  const d=loadLocalData(); d.logs.unshift(logItem); saveLocalData(d);
+}
+async function closeTaskToLog(id, closedBy){
+  const data = await getData();
+  const t = (data.tasks||[]).find(x=>x.id===id);
+  if(!t) return;
+  const now = new Date().toISOString();
+  const closed = {
+    ...t,
+    closedAt: now,
+    closedByFO: closedBy,
+    lifecycleStatus: 'Closed by FO',
+    totalMinutes: calculateTotalMinutes(t.createdAt, now)
+  };
+  data.tasks = (data.tasks||[]).filter(x=>x.id!==id);
+  data.logs = data.logs||[];
+  data.logs.unshift(closed);
+  await saveData(data);
+}
+function calculateTotalMinutes(start,end){
+  if(!start || !end) return 0;
+  return Math.max(0, Math.round((new Date(end)-new Date(start))/60000));
+}
 function isOverdue(task){return task.dueAt&&!['Closed by FO'].includes(task.status)&&new Date(task.dueAt).getTime()<Date.now()}
-function statusBadge(task){return `<span class="badge">${escapeHtml(task.status)}</span>${task.priority==='Urgent'?'<span class="badge urgent">Urgent</span>':''}${isOverdue(task)?'<span class="badge urgent">Overdue</span>':''}${task.pushEnabled?'<span class="badge ok">Push</span>':''}`}
+function statusBadge(task){return `<span class="badge">${escapeHtml(task.status||task.lifecycleStatus||'-')}</span>${task.priority==='Urgent'?'<span class="badge urgent">Urgent</span>':''}${isOverdue(task)?'<span class="badge urgent">Overdue</span>':''}${task.pushEnabled?'<span class="badge ok">Push</span>':''}`}
 function readFiles(files){return Promise.all([...files].map(f=>new Promise(resolve=>{const r=new FileReader();r.onload=()=>resolve({name:f.name,data:r.result});r.readAsDataURL(f)})))}
 async function seedData(force=false){
-  const current=await getTasks();
-  if(current.length&&!force)return;
-  const demo=[
-    { title:'Room Ready ด่วน', outlet:'Hotel', building:'A', floor:'1', roomNumber:'105', room:'A105', desc:'แขก Early Check-in จะมาถึงภายใน 20 นาที', department:'Front Office', taskType:'Room Ready', requestedBy:'FO A', assignee:'HK A', priority:'Urgent', dueAt:nowIsoLocal(), roomStatus:'Vacant Dirty', status:'Accepted by HK', images:[], comments:[{at:new Date().toISOString(),by:'FO A',text:'เปิดงานตัวอย่าง'}], createdBy:'FO A', pushEnabled:true },
-    { title:'ส่งผ้าเช็ดตัวเพิ่ม', outlet:'Hotel', building:'D', floor:'3', roomNumber:'308', room:'D308', desc:'แขกขอผ้าเพิ่ม 2 ผืน', department:'Front Office', taskType:'Guest Request', requestedBy:'FO B', assignee:'HK B', priority:'High', dueAt:nowIsoLocal(), roomStatus:'Occupied', status:'In Progress', images:[], comments:[{at:new Date().toISOString(),by:'FO B',text:'เปิดงานตัวอย่าง'}], createdBy:'FO B', pushEnabled:true },
-    { title:'อัปเดตห้องพร้อมขาย', outlet:'Hotel', building:'C', floor:'2', roomNumber:'212', room:'C212', desc:'HK แจ้งว่าแม่บ้านทำเสร็จแล้ว รอ FO ปิดงาน', department:'Front Office', taskType:'Room Status Update', requestedBy:'FO A', assignee:'HK A', priority:'Medium', dueAt:nowIsoLocal(), roomStatus:'Vacant Clean', status:'Done by HK', images:[], comments:[{at:new Date().toISOString(),by:'HK A',text:'ทำเสร็จแล้ว'}], createdBy:'FO A', pushEnabled:true }
-  ].map(t=>({id:uid(),createdAt:new Date().toISOString(),...t}));
-  await saveTasks(demo);
+  const current=await getData();
+  if((current.tasks||[]).length&&!force)return;
+  const demoTasks=[
+    { title:'Room Ready ด่วน', outlet:'Hotel', roomNumber:'A105', room:'A105', desc:'แขก Early Check-in จะมาถึงภายใน 20 นาที', department:'Front Office', taskType:'Room Ready', requestedBy:'FO A', assignee:'HK A', priority:'Urgent', dueAt:nowIsoLocal(), roomStatus:'Vacant Dirty', status:'In Progress', images:[], comments:[{at:new Date().toISOString(),by:'FO A',text:'FO เปิดงานตัวอย่าง'},{at:new Date().toISOString(),by:'HK A',text:'เริ่มดำเนินการแล้ว'}], createdBy:'FO A', createdAt:new Date().toISOString(), pushEnabled:true, startedAt:new Date().toISOString() },
+    { title:'ส่งผ้าเช็ดตัวเพิ่ม', outlet:'Hotel', roomNumber:'D308', room:'D308', desc:'แขกขอผ้าเพิ่ม 2 ผืน', department:'Front Office', taskType:'Guest Request', requestedBy:'FO B', assignee:'HK B', priority:'High', dueAt:nowIsoLocal(), roomStatus:'Occupied', status:'In Progress', images:[], comments:[{at:new Date().toISOString(),by:'FO B',text:'FO เปิดงานตัวอย่าง'}], createdBy:'FO B', createdAt:new Date().toISOString(), pushEnabled:true, startedAt:new Date().toISOString() },
+    { title:'อัปเดตห้องพร้อมขาย', outlet:'Hotel', roomNumber:'C212', room:'C212', desc:'HK แจ้งว่าแม่บ้านทำเสร็จแล้ว รอ FO ปิดงาน', department:'Front Office', taskType:'Room Status Update', requestedBy:'FO A', assignee:'HK A', priority:'Medium', dueAt:nowIsoLocal(), roomStatus:'Vacant Clean', status:'Done by HK', images:[], comments:[{at:new Date().toISOString(),by:'HK A',text:'ทำเสร็จแล้ว'}], createdBy:'FO A', createdAt:new Date().toISOString(), pushEnabled:true, startedAt:new Date().toISOString(), doneAt:new Date().toISOString() },
+    { title:'ทำความสะอาดห้องด่วน', outlet:'Hotel', roomNumber:'A103', room:'A103', desc:'แขกกำลังจะ check-in', department:'Front Office', taskType:'Room Ready', requestedBy:'FO A', assignee:'HK AAAA', priority:'High', dueAt:nowIsoLocal(), roomStatus:'Vacant Dirty', status:'New from FO', images:[], comments:[{at:new Date().toISOString(),by:'FO A',text:'เปิดงานใหม่'}], createdBy:'FO A', createdAt:new Date().toISOString(), pushEnabled:true }
+  ].map(t=>({id:uid(),...t}));
+  const demoLog=[{
+    id: uid(), title:'งานตัวอย่างปิดแล้ว', outlet:'Hotel', roomNumber:'B201', room:'B201',
+    desc:'งานนี้ถูกปิดและย้ายเข้า log แล้ว', taskType:'Guest Request', requestedBy:'FO B', assignee:'HK B',
+    priority:'Medium', createdAt:new Date(Date.now()-3600_000).toISOString(),
+    startedAt:new Date(Date.now()-3000_000).toISOString(),
+    doneAt:new Date(Date.now()-1800_000).toISOString(),
+    closedAt:new Date(Date.now()-900_000).toISOString(),
+    closedByFO:'FO B', lifecycleStatus:'Closed by FO', totalMinutes:45, comments:[]
+  }];
+  await saveData({tasks:demoTasks, logs:demoLog});
 }
 function taskLocationText(t){return [t.outlet,t.room?'ห้อง '+t.room:''].filter(Boolean).join(' • ')}
-async function renderTaskDetail(id,targetId='taskDetail'){
-  const t=(await getTasks()).find(x=>x.id===id);if(!t)return;
+async function renderTaskDetail(id,targetId='taskDetail', source='tasks'){
+  const d=await getData(); const arr=source==='logs'?(d.logs||[]):(d.tasks||[]);
+  const t=arr.find(x=>x.id===id);if(!t)return;
   document.getElementById(targetId).innerHTML=`<h2 style="margin-top:0">${escapeHtml(t.title)}</h2>
   <div class="small">${escapeHtml(taskLocationText(t))}</div>
   <p><strong>รายละเอียด:</strong> ${escapeHtml(t.desc||'-')}</p>
-  <p><strong>ผู้เปิดงาน FO:</strong> ${escapeHtml(t.requestedBy||'-')} • <strong>ผู้รับงาน HK:</strong> ${escapeHtml(t.assignee||'-')}</p>
+  <p><strong>FO:</strong> ${escapeHtml(t.requestedBy||'-')} • <strong>HK:</strong> ${escapeHtml(t.assignee||'-')}</p>
   <p><strong>ประเภทงาน:</strong> ${escapeHtml(t.taskType||'-')} • <strong>สถานะห้อง:</strong> ${escapeHtml(t.roomStatus||'-')}</p>
-  <p><strong>กำหนด:</strong> ${fmtDate(t.dueAt)}</p>
+  <p><strong>เปิดงาน:</strong> ${fmtDate(t.createdAt)} • <strong>เริ่มงาน:</strong> ${fmtDate(t.startedAt)} • <strong>เสร็จ:</strong> ${fmtDate(t.doneAt)} • <strong>ปิดงาน:</strong> ${fmtDate(t.closedAt)}</p>
+  ${t.totalMinutes!==undefined?`<p><strong>รวมเวลา:</strong> ${t.totalMinutes} นาที</p>`:''}
   <div class="badges">${statusBadge(t)}</div>
   <h3>รูปผลงาน</h3>
   <div>${(t.images||[]).length?t.images.map(img=>`<img class="preview" src="${img.data}" alt="${escapeHtml(img.name)}">`).join(''):'<div class="small">ยังไม่มีรูป</div>'}</div>
   <h3>คอมเมนต์</h3>
   <div>${(t.comments||[]).length?t.comments.map(c=>`<div class="task"><div><strong>${escapeHtml(c.by||'-')}</strong> <span class="small">${fmtDate(c.at)}</span></div><div>${escapeHtml(c.text)}</div></div>`).join(''):'<div class="small">ยังไม่มีคอมเมนต์</div>'}</div>`;
 }
-function applyBoardFilters(tasks,f){return tasks.filter(t=>{if(f.status&&t.status!==f.status)return false;if(f.outlet&&(t.outlet||'')!==f.outlet)return false;if(f.building&&(t.building||'')!==f.building)return false;if(f.floor&&String(t.floor||'')!==String(f.floor))return false;if(f.room&&!String(t.room||'').toLowerCase().includes(String(f.room).toLowerCase()))return false;return true})}
 function toast(msg){alert(msg)}
