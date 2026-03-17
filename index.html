@@ -1,4 +1,18 @@
-<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>HK x FO Login v1.7</title><link rel="manifest" href="manifest.json"><link rel="stylesheet" href="styles.css"></head><body>
-<header><div class="wrap"><strong>Housekeeping × Front Office Task Board v1.7</strong></div></header>
-<div class="wrap center"><div class="panel"><div class="hero"><h1>เข้าสู่ระบบ</h1><p class="small">V1.7 เพิ่ม Outlet / ตึก / ชั้น / เลขห้อง และรองรับ Push Notification จริงผ่าน Firebase Cloud Messaging</p></div><div class="grid"><div><label>รหัสพนักงาน / รหัสหัวหน้า</label><input id="code" type="password" placeholder="เช่น 1111 หรือ 9000"></div><button id="loginBtn">เข้าสู่ระบบ</button><div class="notice"><div><strong>โหมดระบบ</strong>: <span id="modeText">กำลังตรวจสอบ...</span></div><div class="small">แก้รายชื่อและรหัสได้ในไฟล์ <span class="code">users-config.js</span></div></div><div class="warnbox">Push Notification จริงจะทำงานเมื่อใส่ <span class="code">firebase-config.js</span>, <span class="code">firebase-config-sw.js</span> และ <span class="code">FIREBASE_VAPID_KEY</span> ครบ แล้ว deploy ขึ้น Firebase Hosting หรือ HTTPS host</div><div class="notice"><div><strong>รหัสทดลอง</strong></div><div id="demoUsers"></div></div></div></div></div>
-<script src="firebase-config.js"></script><script src="users-config.js"></script><script src="firebase-helpers.js"></script><script src="common.js"></script><script>(async()=>{await seedData();document.getElementById('modeText').textContent=window.FIREBASE_ENABLED?'Firebase Realtime / Push Ready':'Local Demo Mode';document.getElementById('demoUsers').innerHTML=USERS.map(u=>`${u.name} = ${u.code} (${u.role})`).join('<br>');const session=loadSession();if(session){location.href=session.role==='supervisor'?'supervisor.html':'board.html';}})();document.getElementById('loginBtn').onclick=()=>{const ok=login(document.getElementById('code').value);if(!ok)alert('รหัสไม่ถูกต้อง');};document.getElementById('code').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('loginBtn').click();});</script></body></html>
+<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>HK x FO Login v1.7.2</title><link rel="manifest" href="manifest.json"><link rel="stylesheet" href="styles.css"></head><body>
+<header><div class="wrap row space"><strong>Housekeeping × Front Office Task Board v1.7.2</strong><button class="ghost" id="logoutBtn">ออกจากระบบ</button></div></header>
+<div class="wrap center"><div class="panel"><div class="hero"><h1>เข้าสู่ระบบ</h1><p class="small">V1.7.2 แก้ปัญหาหน้าบอร์ดรวมกดไม่ได้, งานตัวอย่างหาย, และปุ่มออกจากระบบ</p></div><div class="grid"><div><label>รหัสพนักงาน / รหัสหัวหน้า</label><input id="code" type="password" placeholder="เช่น 1111 หรือ 9000"></div><button id="loginBtn">เข้าสู่ระบบ</button><div class="notice"><div><strong>โหมดระบบ</strong>: <span id="modeText">กำลังตรวจสอบ...</span></div><div class="small">แก้รายชื่อและรหัสได้ในไฟล์ <span class="code">users-config.js</span></div></div><div class="warnbox">Push Notification จริงจะทำงานเมื่อใส่ <span class="code">firebase-config.js</span>, <span class="code">firebase-config-sw.js</span> และ <span class="code">FIREBASE_VAPID_KEY</span> ครบ แล้ว deploy ขึ้น Firebase Hosting หรือ HTTPS host</div><div class="notice"><div><strong>รหัสทดลอง</strong></div><div id="demoUsers"></div></div></div></div></div>
+<script src="firebase-config.js"></script><script src="users-config.js"></script><script src="firebase-helpers.js"></script><script src="common.js"></script>
+<script>
+(async()=>{
+  await seedData();
+  document.getElementById('modeText').textContent = window.FIREBASE_ENABLED ? 'Firebase Realtime / Push Ready' : 'Local Demo Mode';
+  document.getElementById('demoUsers').innerHTML = USERS.map(u=>`${u.name} = ${u.code} (${u.role})`).join('<br>');
+  const session = loadSession();
+  document.getElementById('logoutBtn').onclick = ()=>{ logout(); };
+  if(session){
+    document.getElementById('logoutBtn').style.display='inline-block';
+  }
+})();
+document.getElementById('loginBtn').onclick=()=>{ const ok=login(document.getElementById('code').value); if(!ok) alert('รหัสไม่ถูกต้อง'); };
+document.getElementById('code').addEventListener('keydown',e=>{ if(e.key==='Enter') document.getElementById('loginBtn').click(); });
+</script></body></html>
