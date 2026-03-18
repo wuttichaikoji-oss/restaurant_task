@@ -1,24 +1,42 @@
-<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>HouseKeeping</title><link rel="stylesheet" href="styles.css"></head><body>
-<header><div class="wrap row space"><div><div class="top-title">HOUSEKEEPING</div><div id="welcome" class="small"></div></div><div class="row"><button class="ghost" id="enablePushBtn">เปิดแจ้งเตือน</button><button class="ghost" id="logoutBtn">ออกจากระบบ</button></div></div></header>
-<div class="wrap grid grid-2">
-  <div class="panel"><div class="section-head"><h2 class="section-title">งานของ HK</h2><div id="firebaseStatus" class="firebase-inline"></div></div>
-    <div class="kpi-strip">
+<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>HouseKeeping</title><link rel="stylesheet" href="styles.css"></head><body class="hk-page">
+<header><div class="wrap row space"><div class="brand"><div class="brand-logo-wrap"><img class="brand-logo" src="assets/laya-logo.png" alt="Laya Resort Phuket"></div><div class="brand-copy"><div class="brand-sub">Laya Resort Phuket</div><div class="top-title">HOUSEKEEPING</div><div id="welcome" class="small"></div></div></div><div class="row"><a href="board.html" class="ghost nav-link">บอร์ดรวม</a><a href="log.html" class="ghost nav-link">LOG / Report</a><button class="ghost" id="logoutBtn">ออกจากระบบ</button></div></div></header>
+<div class="wrap mobile-shell">
+  <section class="panel mobile-focus-panel">
+    <div class="section-head">
+      <div>
+        <h2 class="section-title">HK Assignment Board</h2>
+        <div class="small">หน้าเดียวสำหรับดูงาน มอบหมายงาน และอัปเดตสถานะ โดยคง logic เดิมไว้</div>
+      </div>
+      <div id="firebaseStatus" class="firebase-inline"></div>
+    </div>
+    <div class="kpi-strip kpi-strip-mobile">
       <div class="kpi-mini"><div class="small">งานใหม่จาก FO</div><div class="n" id="kNew">0</div></div>
       <div class="kpi-mini"><div class="small">กำลังทำ</div><div class="n" id="kProg">0</div></div>
       <div class="kpi-mini"><div class="small">รอ FO ปิดงาน</div><div class="n" id="kDone">0</div></div>
     </div>
-    <div class="note-box">หน้า HK ใช้การสั่นแจ้งเตือนอย่างเดียวแล้ว งานใหม่จะสั่น 5 ครั้ง และอัปเดตสถานะจะสั่น 2 ครั้ง (ถ้าอุปกรณ์รองรับ)</div><div id="hkTasks"></div>
-  </div>
+    <div class="note-box">แจ้งเตือนแบบ popup + vibration ยังคงทำงานเดิม: งานใหม่สั่น 5 ครั้ง และอัปเดตสถานะสั่น 2 ครั้งในอุปกรณ์ที่รองรับ</div>
+    <div class="row mobile-toolbar">
+      <input id="hkSearch" class="table-search" placeholder="ค้นหาห้อง / งาน / ผู้รับงาน">
+      <select id="hkFilter" class="toolbar-select">
+        <option value="all">ทุกสถานะ</option>
+        <option value="New from FO">New from FO</option>
+        <option value="In Progress">In Progress</option>
+        <option value="Done by HK">Done by HK</option>
+      </select>
+    </div>
+    <div id="hkTasks" class="assign-board"></div>
+  </section>
 
-  <div class="panel"><div class="section-head"><h2 class="section-title">อัปเดตงาน</h2></div>
-    <form id="submitForm" class="grid">
+  <details class="panel manual-panel">
+    <summary>เครื่องมือสำรอง: อัปเดตงานแบบฟอร์มเดิม</summary>
+    <form id="submitForm" class="grid" style="margin-top:16px;">
       <div><label>เลือกงาน</label><select id="taskId"></select></div>
       <div><label>เปลี่ยนสถานะ</label><select id="status"><option>In Progress</option><option>Done by HK</option></select></div>
       <div><label>คอมเมนต์อัปเดต</label><textarea id="comment" placeholder="เช่น เริ่มทำงานแล้ว / ทำเสร็จแล้ว"></textarea></div>
-      <div><label>อัปโหลดรูปผลงาน <span class="small">(บังคับถ้าจะส่ง Done by HK)</span></label><input id="images" type="file" accept="image/*" multiple></div>
+      <div><label>อัปโหลดรูปผลงาน <span class="small">(บังคับถ้าจะส่ง Done by HK)</span></label><input id="images" type="file" accept="image/*" multiple><div class="file-help">เลือกได้หลายรูป ระบบจะย่อและบีบอัดรูปก่อนอัปโหลดอัตโนมัติ</div></div>
       <button class="good">บันทึกและส่งงาน</button>
     </form>
-  </div>
+  </details>
 </div>
 
 <dialog id="taskDialog"><div class="body"><div id="taskDetail"></div><div class="actions"><button class="ghost" onclick="document.getElementById('taskDialog').close()">ปิด</button></div></div></dialog>
@@ -28,36 +46,45 @@
 const session=requireRole('hk'); forceHKOnly(session);
 document.getElementById('welcome').textContent='ผู้ใช้งาน: '+session.name;
 document.getElementById('logoutBtn').onclick=logout;
-document.getElementById('enablePushBtn').onclick=()=>enableNotificationsForCurrentUser(session,'firebaseStatus');
+const enableBtn=document.getElementById('enablePushBtn'); if(enableBtn) enableBtn.onclick=()=>enableNotificationsForCurrentUser(session,'firebaseStatus');
 
 const uploadState = {};
 let __lastStatusMap = new Map();
+let __hkDataCache = null;
+const hkStaffNames = USERS.filter(u=>u.role==='hk').map(u=>u.name);
 
 async function visibleTasks(dataOverride){
   const data=dataOverride||await getData();
   return (data.tasks||[]).filter(t=>!t.assignee || t.assignee===session.name || t.status==='New from FO' || t.status==='In Progress' || t.status==='Done by HK');
 }
-
+function assignSelect(task){
+  return `<select id="assign-${task.id}" class="mini-select">${hkStaffNames.map(name=>`<option value="${escapeHtml(name)}" ${task.assignee===name?'selected':''}>${escapeHtml(name)}</option>`).join('')}</select>`;
+}
 function taskButtons(t){
   const status = normalizeStatus(t.status);
+  const select = hkStaffNames.length ? assignSelect(t) : '';
   if(status === 'New from FO'){
-    return `<div class="actions">
+    return `<div class="assign-actions">
       <button onclick="openTask('${t.id}')">ดูรายละเอียด</button>
+      ${select}<button class="secondary" onclick="assignTask('${t.id}')">Assign</button>
       <button class="good" onclick="quickStart('${t.id}')">เริ่มทำงาน</button>
     </div>`;
   }
   if(status === 'In Progress'){
     const staged = !!uploadState[t.id];
-    return `<div class="actions">
+    return `<div class="assign-actions">
       <button onclick="openTask('${t.id}')">ดูรายละเอียด</button>
+      ${select}<button class="secondary" onclick="assignTask('${t.id}')">Reassign</button>
       ${!staged ? `<button class="warn" onclick="showUploadForDone('${t.id}')">ทำงานเสร็จแล้ว</button>` : ``}
-      <input id="upload-${t.id}" type="file" accept="image/*" multiple style="${staged ? 'display:block;max-width:220px;' : 'display:none;'}">
+      <input id="upload-${t.id}" type="file" accept="image/*" multiple class="inline-upload" style="${staged ? 'display:block;' : 'display:none;'}"><div class="file-help" style="${staged ? 'display:block;' : 'display:none;'}">เลือกได้หลายรูป ระบบจะย่อและบีบอัดรูปก่อนอัปโหลดอัตโนมัติ</div>
       <button id="send-${t.id}" class="good" onclick="sendToDone('${t.id}')" style="${staged ? 'display:inline-block;' : 'display:none;'}">ส่งงาน</button>
     </div>`;
   }
-  return `<div class="actions"><button onclick="openTask('${t.id}')">ดูรายละเอียด</button></div>`;
+  return `<div class="assign-actions">
+    <button onclick="openTask('${t.id}')">ดูรายละเอียด</button>
+    ${select}<button class="secondary" onclick="assignTask('${t.id}')">Reassign</button>
+  </div>`;
 }
-
 async function detectStatusUpdates(tasks){
   let changed = false;
   for (const t of (tasks||[])) {
@@ -70,37 +97,73 @@ async function detectStatusUpdates(tasks){
   __lastStatusMap = new Map((tasks||[]).map(t => [t.id, t.status]));
   if (changed) vibrateStatusUpdate();
 }
+function hkCard(t){
+  const assigned = t.assignee || 'ยังไม่ระบุ';
+  return `<article class="task assign-card status-${String(normalizeStatus(t.status)).toLowerCase().replace(/\s+/g,'-')}">
+    <div class="task-row-top">
+      <div class="room-chip">${escapeHtml(t.room||'-')}</div>
+      <div class="small">${fmtDate(t.createdAt)}</div>
+    </div>
+    <div class="assign-headline">${escapeHtml(t.title)}</div>
+    <div class="meta clamp-2">${escapeHtml(t.desc||'-')}</div>
+    <div class="assign-owner-label">Assigned to</div>
+    <div class="assign-owner-name">${escapeHtml(assigned)}</div>
+    <div class="task-inline-meta">
+      <span>FO: <strong>${escapeHtml(t.requestedBy||'-')}</strong></span>
+      <span>สถานะ: <strong>${escapeHtml(t.status)}</strong></span>
+    </div>
+    <div class="badges">${statusBadge(t)}</div>
+    ${taskButtons(t)}
+  </article>`;
+}
 async function render(dataOverride){
   const data=dataOverride||await getData();
+  __hkDataCache = data;
   const tasks=await visibleTasks(data);
   await detectStatusUpdates(tasks);
 
-  document.getElementById('kNew').textContent = tasks.filter(t=>t.status==='New from FO').length;
-  document.getElementById('kProg').textContent = tasks.filter(t=>t.status==='In Progress').length;
-  document.getElementById('kDone').textContent = tasks.filter(t=>t.status==='Done by HK').length;
+  document.getElementById('kNew').textContent = tasks.filter(t=>normalizeStatus(t.status)==='New from FO').length;
+  document.getElementById('kProg').textContent = tasks.filter(t=>normalizeStatus(t.status)==='In Progress').length;
+  document.getElementById('kDone').textContent = tasks.filter(t=>normalizeStatus(t.status)==='Done by HK').length;
 
-  document.getElementById('hkTasks').innerHTML = tasks.map(t=>`<article class="task ${t.status==='Done by HK'?'disabled-action':''}">
-    <h4>${escapeHtml(t.title)}</h4>
-    <div class="meta">${escapeHtml(taskLocationText(t))}</div>
-    <div class="meta">FO: ${escapeHtml(t.requestedBy||'-')} • สถานะ: ${escapeHtml(t.status)}</div>
-    <div class="badges">${statusBadge(t)}</div>
-    ${taskButtons(t)}
-  </article>`).join('')||'<div class="small">ยังไม่มีงาน</div>';
+  const q = document.getElementById('hkSearch').value.trim().toLowerCase();
+  const statusFilter = document.getElementById('hkFilter').value;
+  const filtered = tasks.filter(t => {
+    const textMatch = !q || [t.title,t.room,t.assignee,t.requestedBy,t.desc,t.status].some(v => String(v||'').toLowerCase().includes(q));
+    const statusMatch = statusFilter==='all' || normalizeStatus(t.status)===statusFilter;
+    return textMatch && statusMatch;
+  });
 
-  const editable = tasks.filter(t=>['New from FO','In Progress'].includes(t.status));
+  document.getElementById('hkTasks').innerHTML = filtered.map(hkCard).join('')||'<div class="small">ยังไม่มีงาน</div>';
+
+  const editable = tasks.filter(t=>['New from FO','In Progress'].includes(normalizeStatus(t.status)));
   document.getElementById('taskId').innerHTML = editable.map(t=>`<option value="${t.id}">${escapeHtml(t.title)} (${escapeHtml(t.room||'-')})</option>`).join('');
   [...document.querySelectorAll('#submitForm input, #submitForm textarea, #submitForm select, #submitForm button')].forEach(el=>{ el.disabled = editable.length ? false : true; });
   document.getElementById('submitForm').style.opacity = editable.length ? '1' : '.65';
 }
 
 window.openTask=async id=>{await renderTaskDetail(id,'taskDetail','tasks');document.getElementById('taskDialog').showModal();};
-
+window.assignTask=async id=>{
+  const tasks=await getTasks();
+  const t=tasks.find(x=>x.id===id);
+  if(!t) return;
+  const select=document.getElementById('assign-'+id);
+  const newAssignee=select?select.value.trim():'';
+  if(!newAssignee) return;
+  t.assignee=newAssignee;
+  t.comments||=[];
+  t.comments.unshift({at:new Date().toISOString(),by:session.name,text:'มอบหมายงานให้ '+newAssignee});
+  await updateTask(t);
+  await render();
+};
 window.quickStart=async id=>{
   const tasks=await getTasks(); 
   const t=tasks.find(x=>x.id===id); 
-  if(!t || t.status!=='New from FO') return;
+  if(!t || normalizeStatus(t.status)!=='New from FO') return;
+  const select=document.getElementById('assign-'+id);
+  const newAssignee=select?.value?.trim() || session.name;
   t.status='In Progress'; 
-  t.assignee=session.name; 
+  t.assignee=newAssignee;
   if(!t.startedAt) t.startedAt=new Date().toISOString(); 
   t.comments||=[]; 
   t.comments.unshift({at:new Date().toISOString(),by:session.name,text:'HK เริ่มดำเนินการ'}); 
@@ -119,7 +182,7 @@ window.showUploadForDone = function(id){
 window.sendToDone = async function(id){
   const tasks=await getTasks(); 
   const t=tasks.find(x=>x.id===id); 
-  if(!t || t.status!=='In Progress') return;
+  if(!t || normalizeStatus(t.status)!=='In Progress') return;
 
   const input = document.getElementById('upload-' + id);
   const files = input ? input.files : null;
@@ -133,7 +196,7 @@ window.sendToDone = async function(id){
   t.images.unshift(...imgs);
 
   t.status='Done by HK'; 
-  t.assignee=session.name; 
+  if(!t.assignee) t.assignee=session.name; 
   if(!t.startedAt) t.startedAt=new Date().toISOString(); 
   t.doneAt=new Date().toISOString();
   t.comments||=[]; 
@@ -143,6 +206,8 @@ window.sendToDone = async function(id){
   await render();
 };
 
+document.getElementById('hkSearch').addEventListener('input', ()=>render(__hkDataCache));
+document.getElementById('hkFilter').addEventListener('change', ()=>render(__hkDataCache));
 document.getElementById('submitForm').addEventListener('submit',async e=>{
   e.preventDefault();
   const id=document.getElementById('taskId').value; 
@@ -151,9 +216,9 @@ document.getElementById('submitForm').addEventListener('submit',async e=>{
   if(!t)return;
   const status=document.getElementById('status').value;
 
-  if(t.status==='Done by HK') return;
-  if(status==='In Progress' && t.status!=='New from FO') return;
-  if(status==='Done by HK' && t.status!=='In Progress') return;
+  if(normalizeStatus(t.status)==='Done by HK') return;
+  if(status==='In Progress' && normalizeStatus(t.status)!=='New from FO') return;
+  if(status==='Done by HK' && normalizeStatus(t.status)!=='In Progress') return;
 
   const files = document.getElementById('images').files;
   if(status==='Done by HK' && (!files || !files.length)){
@@ -162,7 +227,7 @@ document.getElementById('submitForm').addEventListener('submit',async e=>{
   }
 
   t.status=status; 
-  t.assignee=session.name;
+  if(!t.assignee) t.assignee=session.name;
   if(status==='In Progress' && !t.startedAt) t.startedAt=new Date().toISOString();
   if(status==='Done by HK'){ if(!t.startedAt) t.startedAt=new Date().toISOString(); t.doneAt=new Date().toISOString(); }
 

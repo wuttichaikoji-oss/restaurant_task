@@ -74,8 +74,54 @@ function calculateTotalMinutes(start,end){
   return Math.max(0, Math.round((new Date(end)-new Date(start))/60000));
 }
 function isOverdue(task){return task.dueAt&&!['Closed by FO'].includes(task.status)&&new Date(task.dueAt).getTime()<Date.now()}
-function statusBadge(task){return `<span class="badge">${escapeHtml(task.status||task.lifecycleStatus||'-')}</span>${task.priority==='Urgent'?'<span class="badge urgent">Urgent</span>':''}${isOverdue(task)?'<span class="badge urgent">Overdue</span>':''}${task.pushEnabled?'<span class="badge ok">Push</span>':''}`}
-function readFiles(files){return Promise.all([...files].map(f=>new Promise(resolve=>{const r=new FileReader();r.onload=()=>resolve({name:f.name,data:r.result});r.readAsDataURL(f)})))}
+function statusBadge(task){
+  const status = normalizeStatus(task.status||task.lifecycleStatus||'-');
+  let statusCls = 'badge';
+  if(status==='New from FO') statusCls += ' status-new';
+  else if(status==='In Progress') statusCls += ' status-progress';
+  else if(status==='Done by HK' || status==='Closed by FO') statusCls += ' status-done';
+  return `<span class="${statusCls}">${escapeHtml(task.status||task.lifecycleStatus||'-')}</span>${task.priority==='Urgent'?'<span class="badge urgent">Urgent</span>':''}${isOverdue(task)?'<span class="badge urgent">Overdue</span>':''}${task.pushEnabled?'<span class="badge alert">Popup Alert</span>':''}`
+}
+function fileToDataURL(file){
+  return new Promise(resolve=>{
+    const r=new FileReader();
+    r.onload=()=>resolve({name:file.name,data:r.result,originalSize:file.size,compressed:false});
+    r.readAsDataURL(file);
+  });
+}
+function loadImageElement(file){
+  return new Promise((resolve,reject)=>{
+    const url=URL.createObjectURL(file);
+    const img=new Image();
+    img.onload=()=>{ URL.revokeObjectURL(url); resolve(img); };
+    img.onerror=(e)=>{ URL.revokeObjectURL(url); reject(e); };
+    img.src=url;
+  });
+}
+async function compressImageFile(file, opts={}){
+  if(!(file?.type||'').startsWith('image/')) return fileToDataURL(file);
+  const settings={maxWidth: opts.maxWidth||1600, maxHeight: opts.maxHeight||1600, quality: opts.quality||0.78};
+  try{
+    const img=await loadImageElement(file);
+    const ratio=Math.min(1, settings.maxWidth/img.width, settings.maxHeight/img.height);
+    const width=Math.max(1, Math.round(img.width*ratio));
+    const height=Math.max(1, Math.round(img.height*ratio));
+    const canvas=document.createElement('canvas');
+    canvas.width=width; canvas.height=height;
+    const ctx=canvas.getContext('2d', {alpha:false});
+    ctx.fillStyle='#ffffff';
+    ctx.fillRect(0,0,width,height);
+    ctx.drawImage(img,0,0,width,height);
+    const data=canvas.toDataURL('image/jpeg', settings.quality);
+    return {name:file.name.replace(/\.[^.]+$/, '') + '.jpg', data, originalSize:file.size, compressed:true, width, height};
+  }catch(err){
+    console.warn('compressImageFile fallback', err);
+    return fileToDataURL(file);
+  }
+}
+async function readFiles(files){
+  return Promise.all([...files].map(file=>compressImageFile(file)));
+}
 async function seedData(force=false){
   const current=await getData();
   if((current.tasks||[]).length&&!force)return;
@@ -100,18 +146,38 @@ function taskLocationText(t){return [t.outlet,t.room?'ห้อง '+t.room:''].
 async function renderTaskDetail(id,targetId='taskDetail', source='tasks'){
   const d=await getData(); const arr=source==='logs'?(d.logs||[]):(d.tasks||[]);
   const t=arr.find(x=>x.id===id);if(!t)return;
-  document.getElementById(targetId).innerHTML=`<h2 style="margin-top:0">${escapeHtml(t.title)}</h2>
-  <div class="small">${escapeHtml(taskLocationText(t))}</div>
-  <p><strong>รายละเอียด:</strong> ${escapeHtml(t.desc||'-')}</p>
-  <p><strong>FO:</strong> ${escapeHtml(t.requestedBy||'-')} • <strong>HK:</strong> ${escapeHtml(t.assignee||'-')}</p>
-  <p><strong>ประเภทงาน:</strong> ${escapeHtml(t.taskType||'-')} • <strong>สถานะห้อง:</strong> ${escapeHtml(t.roomStatus||'-')}</p>
-  <p><strong>เปิดงาน:</strong> ${fmtDate(t.createdAt)} • <strong>เริ่มงาน:</strong> ${fmtDate(t.startedAt)} • <strong>เสร็จ:</strong> ${fmtDate(t.doneAt)} • <strong>ปิดงาน:</strong> ${fmtDate(t.closedAt)}</p>
-  ${t.totalMinutes!==undefined?`<p><strong>รวมเวลา:</strong> ${t.totalMinutes} นาที</p>`:''}
-  <div class="badges">${statusBadge(t)}</div>
-  <h3>รูปผลงาน</h3>
-  <div>${(t.images||[]).length?t.images.map(img=>`<img class="preview" src="${img.data}" alt="${escapeHtml(img.name)}">`).join(''):'<div class="small">ยังไม่มีรูป</div>'}</div>
-  <h3>คอมเมนต์</h3>
-  <div>${(t.comments||[]).length?t.comments.map(c=>`<div class="task"><div><strong>${escapeHtml(c.by||'-')}</strong> <span class="small">${fmtDate(c.at)}</span></div><div>${escapeHtml(c.text)}</div></div>`).join(''):'<div class="small">ยังไม่มีคอมเมนต์</div>'}</div>`;
+  document.getElementById(targetId).innerHTML=`<div class="detail-shell">
+    <div class="detail-header">
+      <div class="room-chip detail-room-chip">${escapeHtml(t.room||'-')}</div>
+      <div class="detail-head-copy">
+        <h2>${escapeHtml(t.title)}</h2>
+        <div class="small">${escapeHtml(taskLocationText(t))}</div>
+      </div>
+    </div>
+    <div class="badges">${statusBadge(t)}</div>
+    <div class="detail-grid">
+      <div class="detail-card detail-card-wide">
+        <div class="detail-label">รายละเอียด</div>
+        <div class="detail-value">${escapeHtml(t.desc||'-')}</div>
+      </div>
+      <div class="detail-card">
+        <div class="detail-label">ผู้เกี่ยวข้อง</div>
+        <div class="detail-value"><strong>FO:</strong> ${escapeHtml(t.requestedBy||'-')}<br><strong>HK:</strong> ${escapeHtml(t.assignee||'-')}</div>
+      </div>
+      <div class="detail-card">
+        <div class="detail-label">ข้อมูลงาน</div>
+        <div class="detail-value"><strong>ประเภทงาน:</strong> ${escapeHtml(t.taskType||'-')}<br><strong>Priority:</strong> ${escapeHtml(t.priority||'-')}</div>
+      </div>
+      <div class="detail-card detail-card-wide">
+        <div class="detail-label">Timeline</div>
+        <div class="detail-value"><strong>เปิดงาน:</strong> ${fmtDate(t.createdAt)}<br><strong>เริ่มงาน:</strong> ${fmtDate(t.startedAt)}<br><strong>เสร็จ:</strong> ${fmtDate(t.doneAt)}<br><strong>ปิดงาน:</strong> ${fmtDate(t.closedAt)}${t.totalMinutes!==undefined?`<br><strong>รวมเวลา:</strong> ${t.totalMinutes} นาที`:''}</div>
+      </div>
+    </div>
+    <h3>รูปผลงาน</h3>
+    <div class="detail-media">${(t.images||[]).length?t.images.map(img=>`<img class="preview" src="${img.data}" alt="${escapeHtml(img.name)}">`).join(''):'<div class="small">ยังไม่มีรูป</div>'}</div>
+    <h3>คอมเมนต์</h3>
+    <div class="detail-comments">${(t.comments||[]).length?t.comments.map(c=>`<div class="task detail-comment"><div><strong>${escapeHtml(c.by||'-')}</strong> <span class="small">${fmtDate(c.at)}</span></div><div>${escapeHtml(c.text)}</div></div>`).join(''):'<div class="small">ยังไม่มีคอมเมนต์</div>'}</div>
+  </div>`;
 }
 function toast(msg){alert(msg)}
 function firebaseStatusHTML(state, detail=''){

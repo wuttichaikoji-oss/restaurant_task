@@ -1,9 +1,40 @@
-<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>LOG / REPORT</title><link rel="stylesheet" href="styles.css"></head><body>
-<header><div class="wrap row space"><div><div class="top-title">LOG / REPORT</div><div id="welcome" class="small"></div></div><div class="row" id="navLinks"></div></div></header>
+<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>LOG / REPORT</title><link rel="stylesheet" href="styles.css"></head><body class="log-page">
+<header><div class="wrap row space"><div class="brand"><div class="brand-logo-wrap"><img class="brand-logo" src="assets/laya-logo.png" alt="Laya Resort Phuket"></div><div class="brand-copy"><div class="brand-sub">Laya Resort Phuket</div><div class="top-title">LOG / REPORT</div><div id="welcome" class="small"></div></div></div><div class="row" id="navLinks"></div></div></header>
 <div class="wrap">
   <div id="firebaseStatus" class="firebase-inline" style="margin-bottom:14px;"></div>
-  <div class="stats"><div class="stat"><div class="small">งานปิดแล้วทั้งหมด</div><div class="n" id="rAll">0</div></div><div class="stat"><div class="small">เวลาเฉลี่ย (นาที)</div><div class="n" id="rAvg">0</div></div><div class="stat"><div class="small">ปิดงานวันนี้</div><div class="n" id="rToday">0</div></div><div class="stat"><div class="small">งานเร่งด่วนที่ปิดแล้ว</div><div class="n" id="rUrgent">0</div></div></div>
-  <div class="panel"><h2 class="section-title">ประวัติงานที่ถูก Close job by FO แล้ว</h2><div id="logList"></div></div>
+  <section class="panel">
+    <div class="section-head">
+      <div>
+        <h2 class="section-title">Operational Log</h2>
+        <div class="small">สรุปย้อนหลังสำหรับงานปฏิบัติการและใช้ต่อในงานวิเคราะห์ P&L ได้สะดวกขึ้น</div>
+      </div>
+      <div class="row">
+        <button class="ghost" id="exportCsvBtn">Export CSV</button>
+      </div>
+    </div>
+    <div class="stats compact-stats">
+      <div class="stat"><div class="small">งานปิดแล้วทั้งหมด</div><div class="n" id="rAll">0</div></div>
+      <div class="stat"><div class="small">เวลาเฉลี่ย (นาที)</div><div class="n" id="rAvg">0</div></div>
+      <div class="stat"><div class="small">ปิดงานวันนี้</div><div class="n" id="rToday">0</div></div>
+      <div class="stat"><div class="small">งานเร่งด่วนที่ปิดแล้ว</div><div class="n" id="rUrgent">0</div></div>
+    </div>
+    <div class="board-toolbar">
+      <input id="logSearch" class="table-search" placeholder="ค้นหาห้อง / งาน / FO / HK">
+      <select id="logStaff" class="toolbar-select"><option value="all">ทุกผู้รับงาน</option></select>
+      <input id="logDate" class="toolbar-select" type="date">
+    </div>
+    <div class="compact-board-wrap">
+      <div class="compact-board-head compact-board-row compact-log-head">
+        <div>Date</div>
+        <div>Room / Task</div>
+        <div>FO</div>
+        <div>HK</div>
+        <div>Duration</div>
+        <div>Action</div>
+      </div>
+      <div id="logList" class="compact-board-list"></div>
+    </div>
+  </section>
 </div>
 <dialog id="taskDialog"><div class="body"><div id="taskDetail"></div><div class="actions"><button class="ghost" onclick="document.getElementById('taskDialog').close()">ปิด</button></div></div></dialog>
 <script src="firebase-config.js"></script><script src="users-config.js"></script><script src="firebase-helpers.js"></script><script src="common.js"></script>
@@ -11,22 +42,95 @@
 const session = requireRole(['fo','hk','supervisor']);
 document.getElementById('welcome').textContent = 'ผู้ใช้งาน: ' + session.name + ' (' + session.role + ')';
 const nav = document.getElementById('navLinks');
-if (session.role === 'fo') nav.innerHTML = '<a href="fo.html" class="ghost">หน้า FO</a><a href="board.html" class="ghost">บอร์ดรวม</a><a href="log.html" class="ghost">LOG / Report</a><button class="ghost" id="enablePushBtn">เปิดแจ้งเตือน</button><button class="ghost" id="logoutBtn">ออกจากระบบ</button>';
-else if (session.role === 'hk') nav.innerHTML = '<a href="hk.html" class="ghost">หน้า HK</a><a href="board.html" class="ghost">บอร์ดรวม</a><a href="log.html" class="ghost">LOG / Report</a><button class="ghost" id="logoutBtn">ออกจากระบบ</button>';
-else nav.innerHTML = '<a href="supervisor.html" class="ghost">Supervisor</a><a href="board.html" class="ghost">บอร์ดรวม</a><a href="log.html" class="ghost">LOG / Report</a><button class="ghost" id="logoutBtn">ออกจากระบบ</button>';
+if (session.role === 'fo') nav.innerHTML = '<a href="fo.html" class="ghost nav-link">Open Task</a><a href="board.html" class="ghost nav-link">บอร์ดรวม</a><a href="log.html" class="ghost nav-link active">LOG / Report</a><button class="ghost" id="logoutBtn">ออกจากระบบ</button>';
+else if (session.role === 'hk') nav.innerHTML = '<a href="hk.html" class="ghost nav-link">HK Assign</a><a href="board.html" class="ghost nav-link">บอร์ดรวม</a><a href="log.html" class="ghost nav-link active">LOG / Report</a><button class="ghost" id="logoutBtn">ออกจากระบบ</button>';
+else nav.innerHTML = '<a href="supervisor.html" class="ghost nav-link">Supervisor</a><a href="board.html" class="ghost nav-link">บอร์ดรวม</a><a href="log.html" class="ghost nav-link active">LOG / Report</a><button class="ghost" id="logoutBtn">ออกจากระบบ</button>';
 document.getElementById('logoutBtn').onclick = logout;
-document.getElementById('enablePushBtn').onclick=()=>enableNotificationsForCurrentUser(session,'firebaseStatus');
+const enableBtn = document.getElementById('enablePushBtn');
+if(enableBtn) enableBtn.onclick=()=>enableNotificationsForCurrentUser(session,'firebaseStatus');
+let __logDataCache = null;
+
 function isToday(d){ if(!d) return false; const a=new Date(d), b=new Date(); return a.toDateString()===b.toDateString(); }
+function sameDateInput(value, iso){
+  if(!value) return true;
+  if(!iso) return false;
+  const d = new Date(iso);
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth()+1).padStart(2,'0');
+  const dd = String(d.getDate()).padStart(2,'0');
+  return `${yyyy}-${mm}-${dd}` === value;
+}
+function logRow(t){
+  return `<article class="compact-board-row compact-board-item compact-log-row">
+    <div class="small">${fmtDate(t.closedAt)}</div>
+    <div>
+      <div class="row-title">${escapeHtml(t.room||'-')} • ${escapeHtml(t.title)}</div>
+      <div class="small">${escapeHtml(t.desc||'-')}</div>
+    </div>
+    <div>${escapeHtml(t.requestedBy||'-')}</div>
+    <div>${escapeHtml(t.assignee||'-')}</div>
+    <div><strong>${t.totalMinutes||0}</strong> นาที</div>
+    <div class="action-stack"><button class="good" onclick="openLog('${t.id}')">ดูรายละเอียด</button></div>
+  </article>`;
+}
+function refreshStaffFilter(logs){
+  const select = document.getElementById('logStaff');
+  const current = select.value;
+  const names = [...new Set(logs.map(x=>x.assignee).filter(Boolean))].sort();
+  select.innerHTML = '<option value="all">ทุกผู้รับงาน</option>' + names.map(n=>`<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join('');
+  if(names.includes(current)) select.value = current;
+}
+function buildCsv(rows){
+  const header = ['Closed At','Room','Title','FO','HK','Priority','Minutes','Created At','Done At'];
+  const lines = [header].concat(rows.map(r => [
+    r.closedAt||'', r.room||'', r.title||'', r.requestedBy||'', r.assignee||'', r.priority||'', r.totalMinutes||0, r.createdAt||'', r.doneAt||''
+  ]));
+  return lines.map(cols => cols.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+}
+function downloadCsv(filename, text){
+  const blob = new Blob([text], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+function getFilteredLogs(logs){
+  const q = document.getElementById('logSearch').value.trim().toLowerCase();
+  const staff = document.getElementById('logStaff').value;
+  const date = document.getElementById('logDate').value;
+  return logs.filter(t => {
+    const textMatch = !q || [t.title,t.room,t.requestedBy,t.assignee,t.desc].some(v => String(v||'').toLowerCase().includes(q));
+    const staffMatch = staff === 'all' || (t.assignee||'') === staff;
+    const dateMatch = sameDateInput(date, t.closedAt);
+    return textMatch && staffMatch && dateMatch;
+  });
+}
 async function render(dataOverride){
-  const data=dataOverride||await getData(); const logs=data.logs||[];
-  const avg = logs.length ? Math.round(logs.reduce((s,x)=>s+(x.totalMinutes||0),0)/logs.length) : 0;
-  document.getElementById('rAll').textContent = logs.length;
+  const data=dataOverride||await getData();
+  __logDataCache = data;
+  const logs=data.logs||[];
+  refreshStaffFilter(logs);
+  const filtered = getFilteredLogs(logs);
+  const avg = filtered.length ? Math.round(filtered.reduce((s,x)=>s+(x.totalMinutes||0),0)/filtered.length) : 0;
+  document.getElementById('rAll').textContent = filtered.length;
   document.getElementById('rAvg').textContent = avg;
-  document.getElementById('rToday').textContent = logs.filter(x=>isToday(x.closedAt)).length;
-  document.getElementById('rUrgent').textContent = logs.filter(x=>x.priority==='Urgent').length;
-  document.getElementById('logList').innerHTML = logs.map(t=>`<article class="task"><h4>${escapeHtml(t.title)}</h4><div class="meta">${escapeHtml(taskLocationText(t))}</div><div class="meta">FO: ${escapeHtml(t.requestedBy||'-')} • HK: ${escapeHtml(t.assignee||'-')}</div><div class="meta">เปิด: ${fmtDate(t.createdAt)} • ปิด: ${fmtDate(t.closedAt)} • เวลา: ${t.totalMinutes||0} นาที</div><div class="badges">${statusBadge(t)}</div><div class="actions"><button class="good" onclick="openLog('${t.id}')">ดูรายละเอียด</button></div></article>`).join('') || '<div class="small">ยังไม่มี log</div>';
+  document.getElementById('rToday').textContent = filtered.filter(x=>isToday(x.closedAt)).length;
+  document.getElementById('rUrgent').textContent = filtered.filter(x=>x.priority==='Urgent').length;
+  document.getElementById('logList').innerHTML = filtered.map(logRow).join('') || '<div class="small">ยังไม่มี log ตามเงื่อนไขที่เลือก</div>';
 }
 window.openLog=async id=>{await renderTaskDetail(id,'taskDetail','logs');document.getElementById('taskDialog').showModal();};
+document.getElementById('logSearch').addEventListener('input', ()=>render(__logDataCache));
+document.getElementById('logStaff').addEventListener('change', ()=>render(__logDataCache));
+document.getElementById('logDate').addEventListener('change', ()=>render(__logDataCache));
+document.getElementById('exportCsvBtn').addEventListener('click', ()=>{
+  const logs = (__logDataCache?.logs)||[];
+  const filtered = getFilteredLogs(logs);
+  downloadCsv('hk_fo_log_report.csv', buildCsv(filtered));
+});
 (async()=>{
   setFirebaseStatus('firebaseStatus','checking');
   const fb = await checkFirebaseConnection();

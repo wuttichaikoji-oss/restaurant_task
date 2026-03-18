@@ -1,23 +1,52 @@
-<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>HOUSEKEEPING TASK</title><link rel="stylesheet" href="styles.css"></head><body>
-<header><div class="wrap row space"><div><div class="top-title">HOUSEKEEPING TASK</div><div id="welcome" class="small"></div></div><div class="row" id="navLinks"></div></div></header>
+<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>HOUSEKEEPING TASK</title><link rel="stylesheet" href="styles.css"></head><body class="board-page">
+<header><div class="wrap row space"><div class="brand"><div class="brand-logo-wrap"><img class="brand-logo" src="assets/laya-logo.png" alt="Laya Resort Phuket"></div><div class="brand-copy"><div class="brand-sub">Laya Resort Phuket</div><div class="top-title">HOUSEKEEPING TASK</div><div id="welcome" class="small"></div></div></div><div class="row" id="navLinks"></div></div></header>
 <div class="wrap">
   <div id="firebaseStatus" class="firebase-inline" style="margin-bottom:14px;"></div>
   <div id="legacyNotice" class="notice" style="display:none;margin-bottom:14px;"></div>
-  <div class="stats">
-    <div class="stat"><div class="small">งานบนบอร์ดจริง</div><div class="n" id="sAll">0</div></div>
-    <div class="stat"><div class="small">New from FO</div><div class="n" id="sNew">0</div></div>
-    <div class="stat"><div class="small">In Progress</div><div class="n" id="sProg">0</div></div>
-    <div class="stat"><div class="small">Done by HK</div><div class="n" id="sDone">0</div></div>
-  </div>
-  <div id="board" class="board"></div>
-
-  <div class="panel" style="margin-top:18px;">
+  <section class="panel">
     <div class="section-head">
-      <h2 class="section-title">LOG Detail</h2>
-      <div class="small">งานที่ FO ปิดจบแล้วจะย้ายมาเก็บที่นี่</div>
+      <div>
+        <h2 class="section-title">Assignment Board</h2>
+        <div class="small">มุมมองแบบแถบเล็กสำหรับจอคอม ดูหลายห้องพร้อมกันได้ และกดดูรายละเอียดได้จากแต่ละแถว</div>
+      </div>
+    </div>
+    <div class="stats compact-stats">
+      <div class="stat"><div class="small">งานบนบอร์ดจริง</div><div class="n" id="sAll">0</div></div>
+      <div class="stat"><div class="small">New from FO</div><div class="n" id="sNew">0</div></div>
+      <div class="stat"><div class="small">In Progress</div><div class="n" id="sProg">0</div></div>
+      <div class="stat"><div class="small">Done by HK</div><div class="n" id="sDone">0</div></div>
+    </div>
+    <div class="board-toolbar">
+      <input id="boardSearch" class="table-search" placeholder="ค้นหาห้อง / ชื่องาน / FO / HK">
+      <select id="boardFilter" class="toolbar-select">
+        <option value="all">ทุกสถานะ</option>
+        <option value="New from FO">New from FO</option>
+        <option value="In Progress">In Progress</option>
+        <option value="Done by HK">Done by HK</option>
+      </select>
+    </div>
+    <div class="compact-board-wrap">
+      <div class="compact-board-head compact-board-row">
+        <div>Room</div>
+        <div>Task</div>
+        <div>Assigned To</div>
+        <div>Status</div>
+        <div>Time</div>
+        <div>Action</div>
+      </div>
+      <div id="boardRows" class="compact-board-list"></div>
+    </div>
+  </section>
+
+  <section class="panel" style="margin-top:18px;">
+    <div class="section-head">
+      <div>
+        <h2 class="section-title">Recent Closed Logs</h2>
+        <div class="small">งานที่ FO ปิดจบแล้วจะแสดงเป็นรายการสั้นด้านล่าง เพื่อดูย้อนหลังได้เร็ว</div>
+      </div>
     </div>
     <div id="logUnderBoard" class="log-accordion"></div>
-  </div>
+  </section>
 </div>
 
 <dialog id="taskDialog"><div class="body"><div id="taskDetail"></div><div class="actions"><button class="ghost" onclick="document.getElementById('taskDialog').close()">ปิด</button></div></div></dialog>
@@ -27,27 +56,30 @@
 const session = requireRole(['fo','hk','supervisor']);
 document.getElementById('welcome').textContent = 'ผู้ใช้งาน: ' + session.name + ' (' + session.role + ')';
 const nav = document.getElementById('navLinks');
-if (session.role === 'fo') nav.innerHTML = '<a href="fo.html" class="ghost">หน้า FO</a><a href="board.html" class="ghost">บอร์ดรวม</a><a href="log.html" class="ghost">LOG / Report</a><button class="ghost" id="enablePushBtn">เปิดแจ้งเตือน</button><button class="ghost" id="logoutBtn">ออกจากระบบ</button>';
-else if (session.role === 'hk') nav.innerHTML = '<a href="hk.html" class="ghost">หน้า HK</a><a href="board.html" class="ghost">บอร์ดรวม</a><a href="log.html" class="ghost">LOG / Report</a><button class="ghost" id="enablePushBtn">เปิดแจ้งเตือน</button><button class="ghost" id="logoutBtn">ออกจากระบบ</button>';
-else nav.innerHTML = '<a href="supervisor.html" class="ghost">Supervisor</a><a href="board.html" class="ghost">บอร์ดรวม</a><a href="log.html" class="ghost">LOG / Report</a><button class="ghost" id="enablePushBtn">เปิดแจ้งเตือน</button><button class="ghost" id="logoutBtn">ออกจากระบบ</button>';
+if (session.role === 'fo') nav.innerHTML = '<a href="fo.html" class="ghost nav-link">Open Task</a><a href="board.html" class="ghost nav-link active">บอร์ดรวม</a><a href="log.html" class="ghost nav-link">LOG / Report</a><button class="ghost" id="logoutBtn">ออกจากระบบ</button>';
+else if (session.role === 'hk') nav.innerHTML = '<a href="hk.html" class="ghost nav-link">HK Assign</a><a href="board.html" class="ghost nav-link active">บอร์ดรวม</a><a href="log.html" class="ghost nav-link">LOG / Report</a><button class="ghost" id="logoutBtn">ออกจากระบบ</button>';
+else nav.innerHTML = '<a href="supervisor.html" class="ghost nav-link">Supervisor</a><a href="board.html" class="ghost nav-link active">บอร์ดรวม</a><a href="log.html" class="ghost nav-link">LOG / Report</a><button class="ghost" id="logoutBtn">ออกจากระบบ</button>';
 document.getElementById('logoutBtn').onclick = logout;
-document.getElementById('enablePushBtn').onclick=()=>enableNotificationsForCurrentUser(session,'firebaseStatus');
+const enableBtn=document.getElementById('enablePushBtn'); if(enableBtn) enableBtn.onclick=()=>enableNotificationsForCurrentUser(session,'firebaseStatus');
+let __boardDataCache = null;
 
-function card(t){
+function compactRow(t){
   const canClose = session.role === 'fo' && normalizeStatus(t.status) === 'Done by HK';
-  return `<article class="task">
-    <h4>${escapeHtml(t.title)}</h4>
-    <div class="meta">${escapeHtml(taskLocationText(t))}</div>
-    <div class="meta">FO: ${escapeHtml(t.requestedBy||'-')}</div>
-    <div class="meta">HK: ${escapeHtml(t.assignee||'-')}</div>
-    <div class="badges">${statusBadge(t)}</div>
-    <div class="actions">
-      <button class="good" onclick="openTask('${t.id}','tasks')">ดูรายละเอียด</button>
-      ${canClose ? `<button class="warn" onclick="closeFromBoard('${t.id}')">ปิดจบงาน</button>` : ``}
+  return `<article class="compact-board-row compact-board-item ${normalizeStatus(t.status)==='Done by HK'?'board-ready':''}">
+    <div class="room-chip room-chip-inline">${escapeHtml(t.room||'-')}</div>
+    <div>
+      <div class="row-title">${escapeHtml(t.title)}</div>
+      <div class="small">${escapeHtml(t.desc||'-')}</div>
+    </div>
+    <div class="assign-col">${escapeHtml(t.assignee||'ยังไม่ระบุ')}</div>
+    <div><span class="badge">${escapeHtml(t.status)}</span></div>
+    <div class="small">เปิด ${fmtDate(t.createdAt)}</div>
+    <div class="row action-stack">
+      <button class="good" onclick="openTask('${t.id}','tasks')">ดู</button>
+      ${canClose ? `<button class="warn" onclick="closeFromBoard('${t.id}')">ปิดจบ</button>` : ``}
     </div>
   </article>`;
 }
-
 function logRow(t){
   return `<div class="log-item">
     <div class="log-summary" onclick="toggleLogItem('${t.id}')">
@@ -65,7 +97,6 @@ function logRow(t){
     </div>
   </div>`;
 }
-
 window.toggleLogItem = function(id){
   const content = document.getElementById('content-' + id);
   const chev = document.getElementById('chev-' + id);
@@ -76,6 +107,7 @@ window.toggleLogItem = function(id){
 
 async function render(dataOverride){
   const data = dataOverride || await getData();
+  __boardDataCache = data;
   const rawTasks = data.tasks || [];
   const logs = data.logs || [];
   const {active, legacy} = splitActiveAndLegacyTasks(rawTasks);
@@ -89,19 +121,31 @@ async function render(dataOverride){
   if(legacy.length){
     const statuses = [...new Set(legacy.map(t => normalizeStatus(t.status) || 'ไม่มีสถานะ'))].join(', ');
     legacyNotice.style.display = 'block';
-    legacyNotice.innerHTML = `ซ่อนงานสถานะเก่าที่ไม่อยู่ใน workflow ปัจจุบันแล้ว ${legacy.length} งาน เพื่อให้จำนวนบนบอร์ดตรงกับการ์ดจริง <span class="small">สถานะที่ซ่อน: ${escapeHtml(statuses)}</span>`;
+    legacyNotice.innerHTML = `ซ่อนงานสถานะเก่าที่ไม่อยู่ใน workflow ปัจจุบันแล้ว ${legacy.length} งาน เพื่อให้จำนวนบนบอร์ดตรงกับรายการจริง <span class="small">สถานะที่ซ่อน: ${escapeHtml(statuses)}</span>`;
   }else{
     legacyNotice.style.display = 'none';
     legacyNotice.innerHTML = '';
   }
 
-  document.getElementById('board').innerHTML = STATUSES.map(s=>`<section class="column"><h3>${s} <span class="small">(${active.filter(t=>normalizeStatus(t.status)===s).length})</span></h3>${active.filter(t=>normalizeStatus(t.status)===s).map(card).join('') || '<div class="small">ไม่มีงาน</div>'}</section>`).join('');
+  const search = document.getElementById('boardSearch').value.trim().toLowerCase();
+  const filter = document.getElementById('boardFilter').value;
+  const filtered = active.filter(t=>{
+    const textMatch = !search || [t.title,t.room,t.assignee,t.requestedBy,t.desc,t.status].some(v => String(v||'').toLowerCase().includes(search));
+    const statusMatch = filter === 'all' || normalizeStatus(t.status)===filter;
+    return textMatch && statusMatch;
+  });
+
+  document.getElementById('boardRows').innerHTML = filtered.length
+    ? filtered.map(compactRow).join('')
+    : '<div class="small">ไม่พบงานตามเงื่อนไขที่เลือก</div>';
 
   document.getElementById('logUnderBoard').innerHTML = logs.length
     ? logs.slice(0, 20).map(logRow).join('')
     : '<div class="small">ยังไม่มีงานที่ปิดแล้ว</div>';
 }
 
+document.getElementById('boardSearch').addEventListener('input', ()=>render(__boardDataCache));
+document.getElementById('boardFilter').addEventListener('change', ()=>render(__boardDataCache));
 window.openTask = async (id, source='tasks') => { await renderTaskDetail(id,'taskDetail',source); document.getElementById('taskDialog').showModal(); };
 window.closeFromBoard = async (id) => { await closeTaskToLog(id, session.name); await render(); };
 

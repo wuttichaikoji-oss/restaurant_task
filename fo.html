@@ -1,25 +1,52 @@
-<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Front Office</title><link rel="stylesheet" href="styles.css"></head><body>
-<header><div class="wrap row space"><div><div class="top-title">FRONT OFFICE</div><div id="welcome" class="small"></div></div><div class="row"><a href="fo.html" class="ghost">หน้า FO</a><a href="board.html" class="ghost">บอร์ดรวม</a><a href="log.html" class="ghost">LOG / Report</a><button class="ghost" id="enablePushBtn">เปิดแจ้งเตือน</button><button class="ghost" id="logoutBtn">ออกจากระบบ</button></div></div></header>
-<div class="wrap grid grid-2">
-  <div class="panel"><div class="section-head"><h2 class="section-title">เปิดงานให้ HouseKeeping</h2><div id="firebaseStatus" class="firebase-inline"></div></div>
-    <form id="taskForm" class="grid">
-      <div><label>ชื่องาน</label><input id="title" required></div>
-      <div><label>รายละเอียด</label><textarea id="desc"></textarea></div>
-      <div class="grid grid-4">
-        <div><label>Outlet</label><select id="outlet"><option>Hotel</option><option>Villa</option><option>Public Area</option><option>Laundry</option></select></div>
-        <div><label>เลขห้อง</label><input id="roomNumber" placeholder="เช่น A105"></div>
-        <div><label>ประเภทงาน</label><select id="taskType"><option>Room Ready</option><option>Guest Request</option><option>Room Status Update</option><option>Lost &amp; Found</option><option>Public Area</option><option>Deep Cleaning</option></select></div>
-        <div><label>Priority</label><select id="priority"><option>Medium</option><option>High</option><option>Urgent</option></select></div>
+<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Front Office</title><link rel="stylesheet" href="styles.css"></head><body class="fo-page">
+<header><div class="wrap row space"><div class="brand"><div class="brand-logo-wrap"><img class="brand-logo" src="assets/laya-logo.png" alt="Laya Resort Phuket"></div><div class="brand-copy"><div class="brand-sub">Laya Resort Phuket</div><div class="top-title">FRONT OFFICE</div><div id="welcome" class="small"></div></div></div><div class="row"><a href="fo.html" class="ghost nav-link active">Open Task</a><a href="board.html" class="ghost nav-link">บอร์ดรวม</a><a href="log.html" class="ghost nav-link">LOG / Report</a><button class="ghost" id="logoutBtn">ออกจากระบบ</button></div></div></header>
+<div class="wrap ops-desktop-shell">
+  <section class="panel hero-panel">
+    <div class="section-head">
+      <div>
+        <h2 class="section-title">Open Task for Housekeeping</h2>
+        <div class="small">เปิดงานให้ HK แบบเร็วขึ้น โดยคง logic เดิมของการสร้างงานทุกอย่างไว้</div>
       </div>
-      <div class="grid grid-3">
-        <div><label>ผู้รับงาน HK</label><input id="assignee"></div>
-        <div><label>สถานะห้อง</label><select id="roomStatus"><option>Vacant Dirty</option><option>Vacant Clean</option><option>Inspected</option><option>Occupied</option><option>OOO</option></select></div>
-        <div><label>กำหนดเสร็จ</label><input id="dueAt" type="datetime-local"></div>
+      <div id="firebaseStatus" class="firebase-inline"></div>
+    </div>
+    <div class="ops-hero-grid">
+      <div class="hero-copy">
+        <div class="hero-kicker">FO WORKSTATION</div>
+        <h3>ฟอร์มเรียบขึ้น ใช้งานบนจอคอมง่ายขึ้น</h3>
+        <p class="meta">ตัดช่องที่ไม่จำเป็นออกจากหน้าใช้งาน แต่ยังเก็บค่าที่ระบบต้องใช้ไว้ตามเดิมด้านหลัง เพื่อไม่กระทบ Firebase และ flow หลัก</p>
+        <div class="hero-highlights">
+          <div class="hero-mini"><span>เปิดงานเร็ว</span><strong id="sumToday">0</strong></div>
+          <div class="hero-mini"><span>รอ HK ดำเนินการ</span><strong id="sumOpen">0</strong></div>
+          <div class="hero-mini"><span>รอ FO ปิดงาน</span><strong id="sumDone">0</strong></div>
+        </div>
       </div>
-      <button class="good">ส่งงานไป HK</button>
-    </form>
-  </div>
-  <div class="panel"><div class="section-head"><h2 class="section-title">งานที่ FO เปิด</h2></div><div id="foTasks"></div></div>
+      <form id="taskForm" class="ops-form-card">
+        <div class="grid grid-2 compact-grid">
+          <div><label>เลขห้อง</label><input id="roomNumber" placeholder="เช่น A105"></div>
+          <div><label>Priority</label><select id="priority"><option>Medium</option><option>High</option><option>Urgent</option></select></div>
+        </div>
+        <div><label>ชื่องาน</label><input id="title" required placeholder="เช่น ทำความสะอาดด่วน / Guest Request"></div>
+        <div><label>รายละเอียด</label><textarea id="desc" placeholder="ใส่รายละเอียดที่ HK ต้องเห็น"></textarea></div>
+        <div class="grid grid-2 compact-grid">
+          <div><label>กำหนดเสร็จ</label><input id="dueAt" type="datetime-local"></div>
+          <div class="form-submit-wrap"><button class="good full-btn">ส่งงานไป HK</button></div>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <section class="panel panel-span-all">
+    <div class="section-head">
+      <div>
+        <h2 class="section-title">งานที่ FO เปิด</h2>
+        <div class="small">ดูสถานะล่าสุดของงานที่เปิด และปิดจบงานจากปุ่มเดิมได้เมื่อ HK ส่ง Done by HK</div>
+      </div>
+      <div class="row">
+        <input id="foSearch" class="table-search" placeholder="ค้นหาห้อง / ชื่องาน / ผู้รับงาน">
+      </div>
+    </div>
+    <div id="foTasks" class="fo-task-grid"></div>
+  </section>
 </div>
 <dialog id="taskDialog"><div class="body"><div id="taskDetail"></div><div class="actions"><button class="ghost" onclick="document.getElementById('taskDialog').close()">ปิด</button></div></div></dialog>
 <script src="firebase-config.js"></script><script src="users-config.js"></script><script src="firebase-helpers.js"></script><script src="common.js"></script>
@@ -27,19 +54,72 @@
 const session=requireRole('fo');
 document.getElementById('welcome').textContent='ผู้ใช้งาน: '+session.name;
 document.getElementById('logoutBtn').onclick=logout;
-document.getElementById('enablePushBtn').onclick=()=>enableNotificationsForCurrentUser(session,'firebaseStatus');
+const enableBtn=document.getElementById('enablePushBtn'); if(enableBtn) enableBtn.onclick=()=>enableNotificationsForCurrentUser(session,'firebaseStatus');
 document.getElementById('dueAt').value=nowIsoLocal();
+let __foDataCache = null;
+
+function todayKey(d){ const x = new Date(d||Date.now()); return x.toDateString(); }
+function updateSummary(tasks){
+  const today = todayKey();
+  document.getElementById('sumToday').textContent = tasks.filter(t=>todayKey(t.createdAt)===today).length;
+  document.getElementById('sumOpen').textContent = tasks.filter(t=>normalizeStatus(t.status)!=='Done by HK').length;
+  document.getElementById('sumDone').textContent = tasks.filter(t=>normalizeStatus(t.status)==='Done by HK').length;
+}
+function foCard(t){
+  return `<article class="task fo-card ${normalizeStatus(t.status)==='Done by HK'?'task-ready':''}">
+    <div class="task-row-top">
+      <div class="room-chip">${escapeHtml(t.room||'-')}</div>
+      <div class="small">${fmtDate(t.createdAt)}</div>
+    </div>
+    <h4>${escapeHtml(t.title)}</h4>
+    <div class="meta clamp-2">${escapeHtml(t.desc||'-')}</div>
+    <div class="task-inline-meta">
+      <span>HK: <strong>${escapeHtml(t.assignee||'ยังไม่ระบุ')}</strong></span>
+      <span>สถานะ: <strong>${escapeHtml(t.status)}</strong></span>
+    </div>
+    <div class="badges">${statusBadge(t)}</div>
+    <div class="actions">
+      <button onclick="openTask('${t.id}')">ดูรายละเอียด</button>
+      <button class="good" ${normalizeStatus(t.status)==='Done by HK'?'':'disabled'} onclick="closeJob('${t.id}')">Close job by FO</button>
+    </div>
+  </article>`;
+}
 async function render(dataOverride){
   const data=dataOverride||await getData();
+  __foDataCache = data;
   const tasks=(data.tasks||[]).filter(t=>t.requestedBy===session.name);
-  document.getElementById('foTasks').innerHTML = tasks.map(t=>`<article class="task"><h4>${escapeHtml(t.title)}</h4><div class="meta">${escapeHtml(taskLocationText(t))}</div><div class="meta">HK: ${escapeHtml(t.assignee||'-')} • สถานะ: ${escapeHtml(t.status)}</div><div class="badges">${statusBadge(t)}</div><div class="actions"><button onclick="openTask('${t.id}')">ดู</button><button class="good" ${t.status==='Done by HK'?'':'disabled'} onclick="closeJob('${t.id}')">Close job by FO</button></div></article>`).join('')||'<div class="small">ยังไม่มีงาน</div>';
+  updateSummary(tasks);
+  const q = document.getElementById('foSearch').value.trim().toLowerCase();
+  const filtered = !q ? tasks : tasks.filter(t => [t.title,t.room,t.assignee,t.desc,t.status].some(v => String(v||'').toLowerCase().includes(q)));
+  document.getElementById('foTasks').innerHTML = filtered.map(foCard).join('')||'<div class="small">ยังไม่มีงาน</div>';
 }
 window.openTask=async id=>{await renderTaskDetail(id,'taskDetail','tasks');document.getElementById('taskDialog').showModal();};
 window.closeJob=async id=>{await closeTaskToLog(id, session.name); await render();};
+document.getElementById('foSearch').addEventListener('input', ()=>render(__foDataCache));
 document.getElementById('taskForm').addEventListener('submit',async e=>{
   e.preventDefault();
   const roomInput=document.getElementById('roomNumber').value.trim().toUpperCase();
-  const task={id:uid(),title:document.getElementById('title').value.trim(),desc:document.getElementById('desc').value.trim(),outlet:document.getElementById('outlet').value,roomNumber:roomInput,room:roomInput,department:'Front Office',taskType:document.getElementById('taskType').value,requestedBy:session.name,assignee:document.getElementById('assignee').value.trim(),priority:document.getElementById('priority').value,dueAt:document.getElementById('dueAt').value,roomStatus:document.getElementById('roomStatus').value,pushEnabled:true,status:'New from FO',images:[],comments:[{at:new Date().toISOString(),by:session.name,text:'FO เปิดงานใหม่'}],createdBy:session.name,createdAt:new Date().toISOString()};
+  const task={
+    id:uid(),
+    title:document.getElementById('title').value.trim(),
+    desc:document.getElementById('desc').value.trim(),
+    outlet:'Hotel',
+    roomNumber:roomInput,
+    room:roomInput,
+    department:'Front Office',
+    taskType:'Housekeeping Task',
+    requestedBy:session.name,
+    assignee:'',
+    priority:document.getElementById('priority').value,
+    dueAt:document.getElementById('dueAt').value,
+    roomStatus:'',
+    pushEnabled:true,
+    status:'New from FO',
+    images:[],
+    comments:[{at:new Date().toISOString(),by:session.name,text:'FO เปิดงานใหม่'}],
+    createdBy:session.name,
+    createdAt:new Date().toISOString()
+  };
   await updateTask(task);
   document.getElementById('taskForm').reset();
   document.getElementById('dueAt').value=nowIsoLocal();
