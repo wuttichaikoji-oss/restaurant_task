@@ -125,3 +125,10 @@
 - แก้ Service Worker แบบฝัง Firebase config ตรงใน `firebase-messaging-sw.js`
 - ลดปัญหา `ServiceWorker script evaluation failed`
 - ใช้ path แบบ relative สำหรับ GitHub Pages ใต้โฟลเดอร์ `HK_task`
+
+
+## อัปเดต v2.0.6.3
+- แก้ Service Worker ให้ใช้ syntax แบบเก่า ลดปัญหา script evaluation failed
+- เปลี่ยน path register ให้ตรงกับ GitHub Pages ที่อยู่ใต้ `/HK_task/`
+- เพิ่ม diagnostics สำหรับ notification บนหน้า login
+- เพิ่มไฟล์ `PUSH_TROUBLESHOOTING.txt`

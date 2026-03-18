@@ -1,0 +1,16 @@
+# Push Notification Troubleshooting
+
+ถ้ากด `เปิดแจ้งเตือน` แล้วยังไม่สำเร็จ ให้ทำตามนี้:
+
+1. เปิดเว็บจากลิงก์ GitHub Pages ที่ลงท้ายด้วย `/HK_task/`
+2. กด `F12`
+3. ไปที่ `Application`
+4. ที่ `Storage` ให้กด `Clear site data`
+5. รีโหลดแบบ `Ctrl+F5`
+6. กลับมากด `เปิดแจ้งเตือน` ใหม่
+7. ถ้าเคยกด Block ไว้ ให้กดที่รูปแม่กุญแจข้าง URL แล้วตั้ง `Notifications = Allow`
+
+จุดที่เวอร์ชันนี้แก้แล้ว:
+- ใช้ Service Worker syntax แบบเก่าเพื่อกัน evaluation failed
+- ใช้ path `/HK_task/firebase-messaging-sw.js` ให้ตรงกับ GitHub Pages
+- เพิ่ม diagnostics บนหน้า login

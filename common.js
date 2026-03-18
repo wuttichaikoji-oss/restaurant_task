@@ -256,3 +256,36 @@ function alertForNewTasks(tasks, filterFn){
   }
   __lastSeenTaskIds = currentIds;
 }
+
+async function runNotificationDiagnostics(){
+  const result = {
+    location: window.location.href,
+    origin: window.location.origin,
+    permission: ('Notification' in window) ? Notification.permission : 'unsupported',
+    serviceWorkerSupported: 'serviceWorker' in navigator,
+    firebaseEnabled: !!window.FIREBASE_ENABLED,
+    helperReady: !!window.firebaseHelpers,
+    registrations: 0,
+    swScriptExpected: window.location.origin + '/HK_task/firebase-messaging-sw.js'
+  };
+  try{
+    if('serviceWorker' in navigator){
+      const regs = await navigator.serviceWorker.getRegistrations();
+      result.registrations = regs.length;
+      result.registrationScopes = regs.map(r => r.scope);
+    }
+  }catch(err){
+    result.registrationError = err && err.message ? err.message : String(err);
+  }
+  return result;
+}
+function diagnosticsHTML(d){
+  const lines = [
+    'Permission: ' + escapeHtml(String(d.permission)),
+    'SW Support: ' + (d.serviceWorkerSupported ? 'Yes' : 'No'),
+    'Firebase: ' + (d.firebaseEnabled ? 'Enabled' : 'Disabled'),
+    'Helper: ' + (d.helperReady ? 'Ready' : 'Not Ready'),
+    'SW Registered: ' + String(d.registrations || 0)
+  ];
+  return '<div class="small">' + lines.join(' • ') + '</div>';
+}

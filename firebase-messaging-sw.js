@@ -7,17 +7,26 @@ firebase.initializeApp({
   projectId: "hk-task-12b10",
   storageBucket: "hk-task-12b10.firebasestorage.app",
   messagingSenderId: "50951010152",
-  appId: "1:50951010152:web:5d7e6fdbb39f16a5e988dd",
-  measurementId: "G-WV53WB0FKH"
+  appId: "1:50951010152:web:5d7e6fdbb39f16a5e988dd"
 });
 
-const messaging = firebase.messaging();
+var messaging = firebase.messaging();
 
-messaging.onBackgroundMessage((payload) => {
-  const title = payload?.notification?.title || 'HK x FO Task';
-  const options = {
-    body: payload?.notification?.body || 'มีอัปเดตงานใหม่',
+messaging.onBackgroundMessage(function(payload) {
+  var title = 'HK x FO Task';
+  var body = 'มีอัปเดตงานใหม่';
+
+  if (payload && payload.notification) {
+    if (payload.notification.title) {
+      title = payload.notification.title;
+    }
+    if (payload.notification.body) {
+      body = payload.notification.body;
+    }
+  }
+
+  self.registration.showNotification(title, {
+    body: body,
     icon: './icon-192.png'
-  };
-  self.registration.showNotification(title, options);
+  });
 });

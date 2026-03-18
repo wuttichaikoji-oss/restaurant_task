@@ -50,9 +50,12 @@ window.firebaseHelpers = null;
       async registerDeviceToken(session){
         if(!messaging) throw new Error("Messaging unavailable");
         if(!window.FIREBASE_VAPID_KEY || window.FIREBASE_VAPID_KEY === 'REPLACE_ME') throw new Error("ยังไม่ได้ใส่ VAPID key");
+        if (!('serviceWorker' in navigator)) throw new Error("เบราว์เซอร์ไม่รองรับ service worker");
+        if (!('Notification' in window)) throw new Error("เบราว์เซอร์ไม่รองรับ notification");
         const permission = await Notification.requestPermission();
         if(permission !== 'granted') throw new Error("ผู้ใช้ยังไม่อนุญาต notification");
-        const swReg = await navigator.serviceWorker.register('./firebase-messaging-sw.js');
+        const swReg = await navigator.serviceWorker.register('/HK_task/firebase-messaging-sw.js');
+        await navigator.serviceWorker.ready;
         const token = await msgMod.getToken(messaging,{vapidKey:window.FIREBASE_VAPID_KEY,serviceWorkerRegistration:swReg});
         if(!token) throw new Error("ไม่สามารถสร้าง token ได้");
         await fsMod.setDoc(fsMod.doc(db, tokenCol, token), {
