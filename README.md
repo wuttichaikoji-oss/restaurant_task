@@ -119,3 +119,9 @@
 - เพิ่มเสียงแจ้งเตือนเมื่อมีงานใหม่เข้าฝั่ง HK
 - เพิ่ม vibration บนมือถือเมื่อมีงานใหม่
 - เมื่อมีงานใหม่โผล่ในหน้า HK ระบบจะเตือนทันที
+
+
+## อัปเดต v2.0.6.2
+- แก้ Service Worker แบบฝัง Firebase config ตรงใน `firebase-messaging-sw.js`
+- ลดปัญหา `ServiceWorker script evaluation failed`
+- ใช้ path แบบ relative สำหรับ GitHub Pages ใต้โฟลเดอร์ `HK_task`
