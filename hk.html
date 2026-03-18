@@ -15,7 +15,7 @@
       <div><label>เลือกงาน</label><select id="taskId"></select></div>
       <div><label>เปลี่ยนสถานะ</label><select id="status"><option>In Progress</option><option>Done by HK</option></select></div>
       <div><label>คอมเมนต์อัปเดต</label><textarea id="comment" placeholder="เช่น เริ่มทำงานแล้ว / ทำเสร็จแล้ว"></textarea></div>
-      <div><label>อัปโหลดรูปผลงาน</label><input id="images" type="file" accept="image/*" multiple></div>
+      <div><label>อัปโหลดรูปผลงาน <span class="small">(บังคับถ้าจะส่ง Done by HK)</span></label><input id="images" type="file" accept="image/*" multiple></div>
       <button class="good">บันทึกและส่งงาน</button>
     </form>
   </div>
@@ -108,16 +108,22 @@ window.sendToDone = async function(id){
   if(!t || t.status!=='In Progress') return;
 
   const input = document.getElementById('upload-' + id);
-  const imgs = input ? await readFiles(input.files) : [];
+  const files = input ? input.files : null;
+  if(!files || !files.length){
+    alert('กรุณาอัปโหลดรูปผลงานก่อนส่งงาน');
+    return;
+  }
+
+  const imgs = await readFiles(files);
   t.images ||= [];
-  if(imgs.length) t.images.unshift(...imgs);
+  t.images.unshift(...imgs);
 
   t.status='Done by HK'; 
   t.assignee=session.name; 
   if(!t.startedAt) t.startedAt=new Date().toISOString(); 
   t.doneAt=new Date().toISOString();
   t.comments||=[]; 
-  t.comments.unshift({at:new Date().toISOString(),by:session.name,text: imgs.length ? 'HK ทำเสร็จแล้วและอัปโหลดรูปผลงาน' : 'HK ทำเสร็จแล้ว'});
+  t.comments.unshift({at:new Date().toISOString(),by:session.name,text:'HK ทำเสร็จแล้วและอัปโหลดรูปผลงาน'});
   await updateTask(t); 
   delete uploadState[id];
   await render();
@@ -130,20 +136,33 @@ document.getElementById('submitForm').addEventListener('submit',async e=>{
   const t=tasks.find(x=>x.id===id); 
   if(!t)return;
   const status=document.getElementById('status').value;
+
   if(t.status==='Done by HK') return;
   if(status==='In Progress' && t.status!=='New from FO') return;
   if(status==='Done by HK' && t.status!=='In Progress') return;
+
+  const files = document.getElementById('images').files;
+  if(status==='Done by HK' && (!files || !files.length)){
+    alert('กรุณาอัปโหลดรูปผลงานก่อนส่งงานเป็น Done by HK');
+    return;
+  }
 
   t.status=status; 
   t.assignee=session.name;
   if(status==='In Progress' && !t.startedAt) t.startedAt=new Date().toISOString();
   if(status==='Done by HK'){ if(!t.startedAt) t.startedAt=new Date().toISOString(); t.doneAt=new Date().toISOString(); }
+
   t.images||=[]; 
-  const imgs=await readFiles(document.getElementById('images').files); 
+  const imgs=await readFiles(files); 
   t.images.unshift(...imgs);
+
   const comment=document.getElementById('comment').value.trim(); 
   t.comments||=[]; 
   if(comment){t.comments.unshift({at:new Date().toISOString(),by:session.name,text:comment});}
+  if(status==='Done by HK' && !comment){
+    t.comments.unshift({at:new Date().toISOString(),by:session.name,text:'HK ทำเสร็จแล้วและอัปโหลดรูปผลงาน'});
+  }
+
   await updateTask(t); 
   document.getElementById('submitForm').reset(); 
   await render(); 
