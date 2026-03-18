@@ -10,8 +10,18 @@
     <div class="stat"><div class="small">Done by HK</div><div class="n" id="sDone">0</div></div>
   </div>
   <div id="board" class="board"></div>
+
+  <div class="panel" style="margin-top:18px;">
+    <div class="section-head">
+      <h2 class="section-title">LOG ด้านล่างบอร์ด</h2>
+      <div class="small">งานที่ FO ปิดจบแล้วจะย้ายมาเก็บที่นี่</div>
+    </div>
+    <div id="logUnderBoard"></div>
+  </div>
 </div>
+
 <dialog id="taskDialog"><div class="body"><div id="taskDetail"></div><div class="actions"><button class="ghost" onclick="document.getElementById('taskDialog').close()">ปิด</button></div></div></dialog>
+
 <script src="firebase-config.js"></script><script src="users-config.js"></script><script src="firebase-helpers.js"></script><script src="common.js"></script>
 <script>
 const session = requireRole(['fo','hk','supervisor']);
@@ -23,18 +33,33 @@ else nav.innerHTML = '<a href="supervisor.html" class="ghost">Supervisor</a><a h
 document.getElementById('logoutBtn').onclick = logout;
 
 function card(t){
+  const canClose = session.role === 'fo' && normalizeStatus(t.status) === 'Done by HK';
   return `<article class="task">
     <h4>${escapeHtml(t.title)}</h4>
     <div class="meta">${escapeHtml(taskLocationText(t))}</div>
     <div class="meta">FO: ${escapeHtml(t.requestedBy||'-')}</div>
     <div class="meta">HK: ${escapeHtml(t.assignee||'-')}</div>
     <div class="badges">${statusBadge(t)}</div>
-    <div class="actions"><button class="good" onclick="openTask('${t.id}')">ดูรายละเอียด</button></div>
+    <div class="actions">
+      <button class="good" onclick="openTask('${t.id}','tasks')">ดูรายละเอียด</button>
+      ${canClose ? `<button class="warn" onclick="closeFromBoard('${t.id}')">ปิดจบงาน</button>` : ``}
+    </div>
+  </article>`;
+}
+function logCard(t){
+  return `<article class="task">
+    <h4>${escapeHtml(t.title)}</h4>
+    <div class="meta">${escapeHtml(taskLocationText(t))}</div>
+    <div class="meta">FO: ${escapeHtml(t.requestedBy||'-')} • HK: ${escapeHtml(t.assignee||'-')}</div>
+    <div class="meta">ปิดงาน: ${fmtDate(t.closedAt)} • เวลา: ${t.totalMinutes||0} นาที</div>
+    <div class="badges">${statusBadge(t)}</div>
+    <div class="actions"><button class="good" onclick="openTask('${t.id}','logs')">ดูรายละเอียด</button></div>
   </article>`;
 }
 async function render(dataOverride){
   const data = dataOverride || await getData();
   const rawTasks = data.tasks || [];
+  const logs = data.logs || [];
   const {active, legacy} = splitActiveAndLegacyTasks(rawTasks);
 
   document.getElementById('sAll').textContent = active.length;
@@ -53,8 +78,16 @@ async function render(dataOverride){
   }
 
   document.getElementById('board').innerHTML = STATUSES.map(s=>`<section class="column"><h3>${s} <span class="small">(${active.filter(t=>normalizeStatus(t.status)===s).length})</span></h3>${active.filter(t=>normalizeStatus(t.status)===s).map(card).join('') || '<div class="small">ไม่มีงาน</div>'}</section>`).join('');
+
+  document.getElementById('logUnderBoard').innerHTML = logs.length
+    ? logs.slice(0, 12).map(logCard).join('')
+    : '<div class="small">ยังไม่มีงานที่ปิดแล้ว</div>';
 }
-window.openTask = async id => { await renderTaskDetail(id,'taskDetail','tasks'); document.getElementById('taskDialog').showModal(); };
+window.openTask = async (id, source='tasks') => { await renderTaskDetail(id,'taskDetail',source); document.getElementById('taskDialog').showModal(); };
+window.closeFromBoard = async (id) => {
+  await closeTaskToLog(id, session.name);
+  await render();
+};
 
 (async()=>{
   setFirebaseStatus('firebaseStatus','checking');
