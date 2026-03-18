@@ -7,7 +7,7 @@
       <div class="kpi-mini"><div class="small">กำลังทำ</div><div class="n" id="kProg">0</div></div>
       <div class="kpi-mini"><div class="small">รอ FO ปิดงาน</div><div class="n" id="kDone">0</div></div>
     </div>
-    <div id="hkTasks"></div>
+    <div class="note-box">หน้า HK ใช้การสั่นแจ้งเตือนอย่างเดียวแล้ว งานใหม่จะสั่น 5 ครั้ง และอัปเดตสถานะจะสั่น 2 ครั้ง (ถ้าอุปกรณ์รองรับ)</div><div id="hkTasks"></div>
   </div>
 
   <div class="panel"><div class="section-head"><h2 class="section-title">อัปเดตงาน</h2></div>
@@ -31,6 +31,7 @@ document.getElementById('logoutBtn').onclick=logout;
 document.getElementById('enablePushBtn').onclick=()=>enableNotificationsForCurrentUser(session,'firebaseStatus');
 
 const uploadState = {};
+let __lastStatusMap = new Map();
 
 async function visibleTasks(dataOverride){
   const data=dataOverride||await getData();
@@ -57,9 +58,22 @@ function taskButtons(t){
   return `<div class="actions"><button onclick="openTask('${t.id}')">ดูรายละเอียด</button></div>`;
 }
 
+async function detectStatusUpdates(tasks){
+  let changed = false;
+  for (const t of (tasks||[])) {
+    const prev = __lastStatusMap.get(t.id);
+    if (prev && prev !== t.status) {
+      changed = true;
+      break;
+    }
+  }
+  __lastStatusMap = new Map((tasks||[]).map(t => [t.id, t.status]));
+  if (changed) vibrateStatusUpdate();
+}
 async function render(dataOverride){
   const data=dataOverride||await getData();
   const tasks=await visibleTasks(data);
+  await detectStatusUpdates(tasks);
 
   document.getElementById('kNew').textContent = tasks.filter(t=>t.status==='New from FO').length;
   document.getElementById('kProg').textContent = tasks.filter(t=>t.status==='In Progress').length;
@@ -178,7 +192,13 @@ document.getElementById('submitForm').addEventListener('submit',async e=>{
   initializeSeenTasks(await visibleTasks(firstData));
   await render(firstData);
   if(isFirebaseReady()){
-    const wait=setInterval(()=>{if(window.firebaseHelpers?.subscribe){clearInterval(wait);window.firebaseHelpers.subscribe(async(data)=>{const relevant = await visibleTasks(data); alertForNewTasks(relevant, ()=>true); await render(data); const fb2=await checkFirebaseConnection(); if(fb2.ok) setFirebaseStatus('firebaseStatus','connected', fb2.detail);})}},500);
+    const wait=setInterval(()=>{if(window.firebaseHelpers?.subscribe){clearInterval(wait);window.firebaseHelpers.subscribe(async(data)=>{
+          const relevant = await visibleTasks(data);
+          alertForNewTasks(relevant, ()=>true);
+          await render(data);
+          const fb2=await checkFirebaseConnection();
+          if(fb2.ok) setFirebaseStatus('firebaseStatus','connected', fb2.detail);
+        })}},500);
   }
 })();
 </script></body></html>

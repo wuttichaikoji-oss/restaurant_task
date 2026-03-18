@@ -139,3 +139,40 @@
 - ใช้ Firebase compat เวอร์ชัน 9.22.2 ใน service worker
 - ตัด `onBackgroundMessage` ออกชั่วคราว เพื่อโฟกัสให้เปิดแจ้งเตือนผ่านก่อน
 - ยังคงใช้ path `/HK_task/firebase-messaging-sw.js`
+
+
+## อัปเดต v2.1
+- ใช้ Firebase Cloud Functions สำหรับแจ้งเตือนจริง
+- เมื่อ FO สร้างงานใหม่ ระบบจะส่ง push ไปทุกเครื่องที่ลงทะเบียนเป็น role `hk`
+- เมื่อสถานะงานเปลี่ยน ระบบส่งอัปเดตไปฝั่ง FO ที่ลงทะเบียนไว้
+- เพิ่มเสียงแจ้งเตือนแบบกำหนดเองในหน้า HK โดยใช้ไฟล์ `assets/alert-hk.mp3`
+
+### ข้อจำกัดเรื่องเสียง
+- ถ้าหน้า HK เปิดอยู่ ระบบจะเล่นไฟล์เสียงที่กำหนดเองได้
+- ถ้าเป็น push ตอนเบราว์เซอร์อยู่เบื้องหลัง/ปิดอยู่ จะใช้เสียงแจ้งเตือนมาตรฐานของระบบ/เบราว์เซอร์ ไม่สามารถบังคับเป็น mp3 เฉพาะได้เสมอ
+
+### วิธี deploy Cloud Functions
+1. เปิด terminal ที่โฟลเดอร์โปรเจกต์
+2. รัน `npm install` ภายในโฟลเดอร์ `functions`
+3. ติดตั้ง Firebase CLI และล็อกอิน
+4. รัน `firebase deploy --only functions,hosting`
+
+### สิ่งที่ต้องมีใน Firestore Rules
+```
+match /device_tokens/{document} {
+  allow read, write: if true;
+}
+match /hk_tasks_v19/{document} {
+  allow read, write: if true;
+}
+match /hk_logs_v19/{document} {
+  allow read, write: if true;
+}
+```
+
+
+## อัปเดต v2.1.1
+- ตัดเสียงแจ้งเตือนออก เหลือ vibration only
+- งานใหม่จาก FO: สั่น 5 ครั้ง
+- อัปเดตสถานะงาน: สั่น 2 ครั้ง
+- เหมาะกับการใช้งานบนมือถือมากกว่าเสียงจากเว็บ

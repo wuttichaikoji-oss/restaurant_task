@@ -204,3 +204,5 @@ dialog .body{padding:20px}
 .token-box{background:linear-gradient(180deg,#17171c,#1d1d24);border:1px solid var(--line);border-radius:14px;padding:14px}
 .token-row{padding:10px 0;border-top:1px solid rgba(255,255,255,.06)}
 .token-row:first-child{border-top:0;padding-top:0}
+
+.note-box{padding:12px 14px;border-radius:14px;background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.25);color:#dbeafe;margin-bottom:14px}
