@@ -33,6 +33,11 @@
         <div>Action</div>
       </div>
       <div id="logList" class="compact-board-list"></div>
+      <div class="pagination-bar">
+        <button class="ghost" id="logPrevBtn">ก่อนหน้า</button>
+        <div class="small" id="logPageInfo">หน้า 1</div>
+        <button class="ghost" id="logNextBtn">ถัดไป</button>
+      </div>
     </div>
   </section>
 </div>
@@ -44,11 +49,13 @@ document.getElementById('welcome').textContent = 'ผู้ใช้งาน: '
 const nav = document.getElementById('navLinks');
 if (session.role === 'fo') nav.innerHTML = '<a href="fo.html" class="ghost nav-link">Open Task</a><a href="board.html" class="ghost nav-link">บอร์ดรวม</a><a href="log.html" class="ghost nav-link active">LOG / Report</a><button class="ghost" id="logoutBtn">ออกจากระบบ</button>';
 else if (session.role === 'hk') nav.innerHTML = '<a href="hk.html" class="ghost nav-link">HK Assign</a><a href="board.html" class="ghost nav-link">บอร์ดรวม</a><a href="log.html" class="ghost nav-link active">LOG / Report</a><button class="ghost" id="logoutBtn">ออกจากระบบ</button>';
-else nav.innerHTML = '<a href="supervisor.html" class="ghost nav-link">Supervisor</a><a href="board.html" class="ghost nav-link">บอร์ดรวม</a><a href="log.html" class="ghost nav-link active">LOG / Report</a><button class="ghost" id="logoutBtn">ออกจากระบบ</button>';
+else nav.innerHTML = '<a href="fo.html" class="ghost nav-link">Open Task</a><a href="board.html" class="ghost nav-link">บอร์ดรวม</a><a href="log.html" class="ghost nav-link active">LOG / Report</a><a href="supervisor.html" class="ghost nav-link">Supervisor</a><button class="ghost" id="logoutBtn">ออกจากระบบ</button>';
 document.getElementById('logoutBtn').onclick = logout;
 const enableBtn = document.getElementById('enablePushBtn');
 if(enableBtn) enableBtn.onclick=()=>enableNotificationsForCurrentUser(session,'firebaseStatus');
 let __logDataCache = null;
+let __logPage = 1;
+const LOG_PAGE_SIZE = 30;
 
 function isToday(d){ if(!d) return false; const a=new Date(d), b=new Date(); return a.toDateString()===b.toDateString(); }
 function sameDateInput(value, iso){
@@ -120,12 +127,21 @@ async function render(dataOverride){
   document.getElementById('rAvg').textContent = avg;
   document.getElementById('rToday').textContent = filtered.filter(x=>isToday(x.closedAt)).length;
   document.getElementById('rUrgent').textContent = filtered.filter(x=>x.priority==='Urgent').length;
-  document.getElementById('logList').innerHTML = filtered.map(logRow).join('') || '<div class="small">ยังไม่มี log ตามเงื่อนไขที่เลือก</div>';
+  const totalPages = Math.max(1, Math.ceil(filtered.length / LOG_PAGE_SIZE));
+  if(__logPage > totalPages) __logPage = totalPages;
+  const start = (__logPage - 1) * LOG_PAGE_SIZE;
+  const pageRows = filtered.slice(start, start + LOG_PAGE_SIZE);
+  document.getElementById('logList').innerHTML = pageRows.map(logRow).join('') || '<div class="small">ยังไม่มี log ตามเงื่อนไขที่เลือก</div>';
+  document.getElementById('logPageInfo').textContent = `หน้า ${__logPage} / ${totalPages} • ${filtered.length} รายการ`;
+  document.getElementById('logPrevBtn').disabled = __logPage <= 1;
+  document.getElementById('logNextBtn').disabled = __logPage >= totalPages;
 }
 window.openLog=async id=>{await renderTaskDetail(id,'taskDetail','logs');document.getElementById('taskDialog').showModal();};
-document.getElementById('logSearch').addEventListener('input', ()=>render(__logDataCache));
-document.getElementById('logStaff').addEventListener('change', ()=>render(__logDataCache));
-document.getElementById('logDate').addEventListener('change', ()=>render(__logDataCache));
+document.getElementById('logSearch').addEventListener('input', ()=>{ __logPage = 1; render(__logDataCache); });
+document.getElementById('logStaff').addEventListener('change', ()=>{ __logPage = 1; render(__logDataCache); });
+document.getElementById('logDate').addEventListener('change', ()=>{ __logPage = 1; render(__logDataCache); });
+document.getElementById('logPrevBtn').addEventListener('click', ()=>{ if(__logPage>1){ __logPage--; render(__logDataCache); } });
+document.getElementById('logNextBtn').addEventListener('click', ()=>{ if((__logDataCache?.logs||[]).length){ __logPage++; render(__logDataCache); } });
 document.getElementById('exportCsvBtn').addEventListener('click', ()=>{
   const logs = (__logDataCache?.logs)||[];
   const filtered = getFilteredLogs(logs);

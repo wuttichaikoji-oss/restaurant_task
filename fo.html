@@ -1,19 +1,19 @@
 <!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Front Office</title><link rel="stylesheet" href="styles.css"></head><body class="fo-page">
-<header><div class="wrap row space"><div class="brand"><div class="brand-logo-wrap"><img class="brand-logo" src="assets/laya-logo.png" alt="Laya Resort Phuket"></div><div class="brand-copy"><div class="brand-sub">Laya Resort Phuket</div><div class="top-title">FRONT OFFICE</div><div id="welcome" class="small"></div></div></div><div class="row"><a href="fo.html" class="ghost nav-link active">Open Task</a><a href="board.html" class="ghost nav-link">บอร์ดรวม</a><a href="log.html" class="ghost nav-link">LOG / Report</a><button class="ghost" id="logoutBtn">ออกจากระบบ</button></div></div></header>
+<header><div class="wrap row space"><div class="brand"><div class="brand-logo-wrap"><img class="brand-logo" src="assets/laya-logo.png" alt="Laya Resort Phuket"></div><div class="brand-copy"><div class="brand-sub">Laya Resort Phuket</div><div class="top-title">FRONT OFFICE</div><div id="welcome" class="small"></div></div></div><div class="row" id="navLinks"><a href="fo.html" class="ghost nav-link active">Open Task</a><a href="board.html" class="ghost nav-link">บอร์ดรวม</a><a href="log.html" class="ghost nav-link">LOG / Report</a><button class="ghost" id="logoutBtn">ออกจากระบบ</button></div></div></header>
 <div class="wrap ops-desktop-shell">
   <section class="panel hero-panel">
     <div class="section-head">
       <div>
         <h2 class="section-title">Open Task for Housekeeping</h2>
-        <div class="small">ระบบสั่งงานให้ทีมแม่บ้าน LAYA RESORT</div>
+        <div class="small">เปิดงานให้ HK แบบเร็วขึ้น โดยคง logic เดิมของการสร้างงานทุกอย่างไว้</div>
       </div>
       <div id="firebaseStatus" class="firebase-inline"></div>
     </div>
     <div class="ops-hero-grid">
       <div class="hero-copy">
         <div class="hero-kicker">FO WORKSTATION</div>
-        <h3>LAYA FO TEAM</h3>
-        <p class="meta">Front Office Order</p>
+        <h3>ฟอร์มเรียบขึ้น ใช้งานบนจอคอมง่ายขึ้น</h3>
+        <p class="meta">ตัดช่องที่ไม่จำเป็นออกจากหน้าใช้งาน แต่ยังเก็บค่าที่ระบบต้องใช้ไว้ตามเดิมด้านหลัง เพื่อไม่กระทบ Firebase และ flow หลัก</p>
         <div class="hero-highlights">
           <div class="hero-mini"><span>เปิดงานเร็ว</span><strong id="sumToday">0</strong></div>
           <div class="hero-mini"><span>รอ HK ดำเนินการ</span><strong id="sumOpen">0</strong></div>
@@ -51,8 +51,11 @@
 <dialog id="taskDialog"><div class="body"><div id="taskDetail"></div><div class="actions"><button class="ghost" onclick="document.getElementById('taskDialog').close()">ปิด</button></div></div></dialog>
 <script src="firebase-config.js"></script><script src="users-config.js"></script><script src="firebase-helpers.js"></script><script src="common.js"></script>
 <script>
-const session=requireRole('fo');
-document.getElementById('welcome').textContent='ผู้ใช้งาน: '+session.name;
+const session=requireRole(['fo','supervisor']);
+document.getElementById('welcome').textContent=(session.role==='supervisor'?'Supervisor: ':'ผู้ใช้งาน: ')+session.name;
+if(session.role==='supervisor'){
+  document.getElementById('navLinks').innerHTML = '<a href="fo.html" class="ghost nav-link active">Open Task</a><a href="board.html" class="ghost nav-link">บอร์ดรวม</a><a href="log.html" class="ghost nav-link">LOG / Report</a><a href="supervisor.html" class="ghost nav-link">Supervisor</a><button class="ghost" id="logoutBtn">ออกจากระบบ</button>';
+}
 document.getElementById('logoutBtn').onclick=logout;
 const enableBtn=document.getElementById('enablePushBtn'); if(enableBtn) enableBtn.onclick=()=>enableNotificationsForCurrentUser(session,'firebaseStatus');
 document.getElementById('dueAt').value=nowIsoLocal();
@@ -87,7 +90,7 @@ function foCard(t){
 async function render(dataOverride){
   const data=dataOverride||await getData();
   __foDataCache = data;
-  const tasks=(data.tasks||[]).filter(t=>t.requestedBy===session.name);
+  const tasks=(data.tasks||[]).filter(t=>session.role==='supervisor' ? true : t.requestedBy===session.name);
   updateSummary(tasks);
   const q = document.getElementById('foSearch').value.trim().toLowerCase();
   const filtered = !q ? tasks : tasks.filter(t => [t.title,t.room,t.assignee,t.desc,t.status].some(v => String(v||'').toLowerCase().includes(q)));
@@ -108,7 +111,7 @@ document.getElementById('taskForm').addEventListener('submit',async e=>{
     room:roomInput,
     department:'Front Office',
     taskType:'Housekeeping Task',
-    requestedBy:session.name,
+    requestedBy:session.role==='supervisor' ? ('Supervisor ' + session.name) : session.name,
     assignee:'',
     priority:document.getElementById('priority').value,
     dueAt:document.getElementById('dueAt').value,

@@ -6,20 +6,56 @@ window.firebaseHelpers = null;
     const fsMod = await import("https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js");
     const msgMod = await import("https://www.gstatic.com/firebasejs/10.12.5/firebase-messaging.js");
     const app = appMod.initializeApp(window.FIREBASE_CONFIG);
-    const db = fsMod.getFirestore(app);
+    let db;
+    try{
+      if(fsMod.initializeFirestore && fsMod.persistentLocalCache){
+        db = fsMod.initializeFirestore(app, {
+          localCache: fsMod.persistentLocalCache({
+            tabManager: fsMod.persistentMultipleTabManager ? fsMod.persistentMultipleTabManager() : undefined
+          })
+        });
+      }else{
+        db = fsMod.getFirestore(app);
+      }
+    }catch(cacheErr){
+      console.warn('Firestore persistent cache unavailable, fallback to default cache:', cacheErr);
+      db = fsMod.getFirestore(app);
+    }
     const tasksCol = fsMod.collection(db, window.FIREBASE_TASKS_COLLECTION || "hk_tasks_v19");
     const logsCol = fsMod.collection(db, window.FIREBASE_LOGS_COLLECTION || "hk_logs_v19");
     const tokenCol = window.FIREBASE_DEVICE_TOKENS_COLLECTION || "device_tokens";
     const usersColName = window.FIREBASE_USERS_COLLECTION || "hk_users_v1";
     const usersCol = fsMod.collection(db, usersColName);
+    const tasksQuery = fsMod.query(tasksCol, fsMod.orderBy('createdAt', 'desc'));
+    const logsQuery = fsMod.query(logsCol, fsMod.orderBy('closedAt', 'desc'));
+    const hkTasksQueryFor = (assignee)=>fsMod.query(tasksCol, fsMod.where('assignee','==',String(assignee||'')), fsMod.orderBy('createdAt', 'desc'));
+    const hkTasksFallbackQuery = fsMod.query(tasksCol, fsMod.orderBy('createdAt', 'desc'));
+    let taskCache = null;
+    let logCache = null;
+    let userCache = null;
+    function mapTasksSnapshot(snap){
+      return snap.docs.map(doc=>({id:doc.id, ...doc.data()})).sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0));
+    }
+    function mapLogsSnapshot(snap){
+      return snap.docs.map(doc=>({id:doc.id, ...doc.data()})).sort((a,b)=>new Date(b.closedAt||b.createdAt||0)-new Date(a.closedAt||a.createdAt||0));
+    }
+    async function readTasks(force=false){
+      if(taskCache && !force) return taskCache;
+      const snap = await fsMod.getDocs(tasksQuery);
+      taskCache = mapTasksSnapshot(snap);
+      return taskCache;
+    }
+    async function readLogs(force=false){
+      if(logCache && !force) return logCache;
+      const snap = await fsMod.getDocs(logsQuery);
+      logCache = mapLogsSnapshot(snap);
+      return logCache;
+    }
     let messaging = null; try { messaging = msgMod.getMessaging(app); } catch (e) {}
     window.firebaseHelpers = {
-      async getData(){
-        const [tasksSnap, logsSnap] = await Promise.all([fsMod.getDocs(fsMod.query(tasksCol)), fsMod.getDocs(fsMod.query(logsCol))]);
-        return {
-          tasks: tasksSnap.docs.map(doc=>({id:doc.id,...doc.data()})).sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0)),
-          logs: logsSnap.docs.map(doc=>({id:doc.id,...doc.data()})).sort((a,b)=>new Date(b.closedAt||b.createdAt||0)-new Date(a.closedAt||a.createdAt||0)),
-        };
+      async getData(force=false){
+        const [tasks, logs] = await Promise.all([readTasks(force), readLogs(force)]);
+        return { tasks:[...tasks], logs:[...logs] };
       },
       async replaceAllData(data){
         const current = await this.getData();
@@ -40,31 +76,86 @@ window.firebaseHelpers = null;
         await fsMod.setDoc(fsMod.doc(db, window.FIREBASE_LOGS_COLLECTION || "hk_logs_v19", id), {...logItem,id});
       },
       subscribe(onChange){
-        const unsub1 = fsMod.onSnapshot(fsMod.query(tasksCol), async ()=>{ onChange(await this.getData()); });
-        const unsub2 = fsMod.onSnapshot(fsMod.query(logsCol), async ()=>{ onChange(await this.getData()); });
+        let readyTasks = false;
+        let readyLogs = false;
+        const emit = ()=>{
+          if(readyTasks && readyLogs){
+            onChange({ tasks:[...(taskCache||[])], logs:[...(logCache||[])] });
+          }
+        };
+        const unsub1 = fsMod.onSnapshot(tasksQuery, (snap)=>{
+          taskCache = mapTasksSnapshot(snap);
+          readyTasks = true;
+          emit();
+        }, (err)=>console.error('tasks onSnapshot error:', err));
+        const unsub2 = fsMod.onSnapshot(logsQuery, (snap)=>{
+          logCache = mapLogsSnapshot(snap);
+          readyLogs = true;
+          emit();
+        }, (err)=>console.error('logs onSnapshot error:', err));
         return ()=>{unsub1();unsub2();};
       },
+      async getTasksByAssignee(assignee){
+        const name = String(assignee||'').trim();
+        if(!name) return [];
+        try{
+          const snap = await fsMod.getDocs(hkTasksQueryFor(name));
+          return mapTasksSnapshot(snap);
+        }catch(err){
+          console.warn('getTasksByAssignee fallback to full tasks query:', err);
+          const snap = await fsMod.getDocs(hkTasksFallbackQuery);
+          return mapTasksSnapshot(snap).filter(t => String(t.assignee||'').trim() === name);
+        }
+      },
+      subscribeTasksByAssignee(assignee, onChange){
+        const name = String(assignee||'').trim();
+        const queryToUse = name ? hkTasksQueryFor(name) : hkTasksFallbackQuery;
+        return fsMod.onSnapshot(queryToUse, (snap)=>{
+          let tasks = mapTasksSnapshot(snap);
+          if(name) tasks = tasks.filter(t => String(t.assignee||'').trim() === name);
+          onChange(tasks);
+        }, async(err)=>{
+          console.error('subscribeTasksByAssignee error:', err);
+          try{
+            const all = await this.getTasksByAssignee(name);
+            onChange(all);
+          }catch(fallbackErr){
+            console.error('subscribeTasksByAssignee fallback failed:', fallbackErr);
+          }
+        });
+      },
 
-      async getUsers(){
+      async getUsers(force=false){
+        if(userCache && !force) return [...userCache];
         const snap = await fsMod.getDocs(fsMod.query(usersCol));
-        return snap.docs.map(doc=>({code:doc.id, ...doc.data()}))
+        userCache = snap.docs.map(doc=>({code:doc.id, ...doc.data()}))
           .filter(u=>u.code && u.name)
           .sort((a,b)=>{
             const order={fo:0,supervisor:1,hk:2};
             return (order[a.role]??9)-(order[b.role]??9) || String(a.code).localeCompare(String(b.code),'en');
           });
+        return [...userCache];
       },
       async upsertUser(user){
         const code = String(user?.code||'').trim();
         if(!code) throw new Error('missing user code');
         const payload = {...user, code, updatedAt:new Date().toISOString()};
         await fsMod.setDoc(fsMod.doc(db, usersColName, code), payload);
+        userCache = null;
         return payload;
       },
       async deleteUser(code){
         const id = String(code||'').trim();
         if(!id) return;
         await fsMod.deleteDoc(fsMod.doc(db, usersColName, id));
+        userCache = null;
+      },
+      getConnectionInfo(){
+        return {
+          cacheEnabled: !!fsMod.persistentLocalCache,
+          taskCount: (taskCache||[]).length,
+          logCount: (logCache||[]).length
+        };
       },
       async listDeviceTokens(){
         const snap = await fsMod.getDocs(fsMod.query(fsMod.collection(db, tokenCol)));

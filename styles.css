@@ -939,3 +939,7 @@ input[type="file"]{padding:12px 14px;line-height:1.35}
 .hk-page .section-head .small{max-width:620px}
 .hk-page .assign-owner-label{font-size:12px}
 .hk-page .note-box{line-height:1.55}
+
+
+.pagination-bar{display:flex;align-items:center;justify-content:flex-end;gap:12px;padding:14px 6px 4px;flex-wrap:wrap}
+.pagination-bar .ghost[disabled]{opacity:.45;cursor:not-allowed}

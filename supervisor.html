@@ -8,15 +8,15 @@
     <div class="section-head">
       <div>
         <h2 class="section-title">จัดการรหัสพนักงาน</h2><div class="notice create-user-notice">กดปุ่ม <b>สร้าง ID พนักงานใหม่</b> ด้านล่างเพื่อเพิ่มรหัสพนักงาน HK หรือ Supervisor</div>
-        <div class="small">-</div>
+        <div class="small">ระบบตั้งต้นมี FO 1 ID และ Supervisor 2 ID แล้ว ส่วน Supervisor สามารถสร้างรหัสใหม่สำหรับ HK หรือ Supervisor เพิ่มได้</div>
       </div>
     </div>
-    <div class="notice" style="margin-bottom:14px;">หน้านี้จะเป็นหน้าแอดมิน ไว้สร้าง ไอดี หรือจะดูบอร์ดรวมของทุกคนในทีม แม่บ้านได้</div>
+    <div class="notice" style="margin-bottom:14px;">FO หลักถูกล็อกไว้ 1 ID เพื่อให้หน้าเปิดงานใช้ชุดเดียว ส่วนรหัสพนักงานใหม่ให้สร้างจากส่วนนี้ได้เลย เช่น 2001, 2002 หรือรหัสตามที่หน่อยต้องการ</div>
     <div class="user-admin-grid">
       <form id="userForm" class="ops-form-card compact-grid highlight-create-form">
         <div class="grid grid-2 compact-grid">
-          <div><label>ID พนักงาน</label><input id="userCode" placeholder="เช่น 25001"></div>
-          <div><label>ชื่อพนักงาน</label><input id="userName" placeholder="เช่น Noi /Wuttichai koji"></div>
+          <div><label>ID พนักงาน</label><input id="userCode" placeholder="เช่น 2001"></div>
+          <div><label>ชื่อพนักงาน</label><input id="userName" placeholder="เช่น Noi / Somchai"></div>
         </div>
         <div class="grid grid-2 compact-grid">
           <div><label>ตำแหน่ง</label><input id="userPosition" placeholder="เช่น Room Attendant / Supervisor"></div>
@@ -52,6 +52,19 @@
       </select>
     </div>
     <div id="taskAdminList" class="supervisor-task-list"></div>
+  </div>
+
+  <div class="panel token-panel">
+    <div class="section-head">
+      <div>
+        <h2 class="section-title">ล้างข้อมูลทั้งหมด</h2>
+        <div class="small">ลบงานค้างและ log ทั้งหมดในระบบ ต้องใส่รหัสยืนยันก่อน</div>
+      </div>
+    </div>
+    <div class="grid grid-2 compact-grid">
+      <div><label>รหัสล้างข้อมูล</label><input id="wipeCode" type="password" placeholder="ใส่รหัสยืนยัน"></div>
+      <div class="form-submit-wrap"><button class="bad full-btn" id="wipeAllBtn">ล้างข้อมูลทั้งหมด</button></div>
+    </div>
   </div>
 
   <div class="panel token-panel">
@@ -225,6 +238,20 @@ document.getElementById('userForm').addEventListener('submit', async (e)=>{
 document.getElementById('taskAdminSearch').addEventListener('input', ()=>renderTaskAdmin(__taskAdminCache));
 document.getElementById('taskAdminFilter').addEventListener('change', ()=>renderTaskAdmin(__taskAdminCache));
 document.getElementById('refreshTaskAdminBtn').onclick = async ()=>{ __taskAdminCache = await getData(); renderTaskAdmin(__taskAdminCache); };
+document.getElementById('wipeAllBtn').onclick = async ()=>{
+  const code = document.getElementById('wipeCode').value.trim();
+  if(!confirm('ยืนยันการล้างข้อมูลทั้งหมด?')) return;
+  try{
+    await clearAllAppData(code);
+    document.getElementById('wipeCode').value='';
+    __taskAdminCache = {tasks:[], logs:[]};
+    await render(__taskAdminCache);
+    await renderTokens();
+    alert('ล้างข้อมูลทั้งหมดเรียบร้อย');
+  }catch(err){
+    alert(err?.message || 'ล้างข้อมูลไม่สำเร็จ');
+  }
+};
 
 (async()=>{
   setFirebaseStatus('firebaseStatus','checking');

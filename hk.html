@@ -1,5 +1,5 @@
 <!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>งานของฉัน | Housekeeping</title><link rel="stylesheet" href="styles.css"></head><body class="hk-page">
-<header><div class="wrap row space"><div class="brand"><div class="brand-logo-wrap"><img class="brand-logo" src="assets/laya-logo.png" alt="Laya Resort Phuket"></div><div class="brand-copy"><div class="brand-sub">Laya Resort Phuket</div><div class="top-title">งานของฉัน</div><div id="welcome" class="small"></div></div></div><div class="row"><button class="ghost" id="logoutBtn">ออกจากระบบ</button></div></div></header>
+<header><div class="wrap row space"><div class="brand"><div class="brand-logo-wrap"><img class="brand-logo" src="assets/laya-logo.png" alt="Laya Resort Phuket"></div><div class="brand-copy"><div class="brand-sub">Laya Resort Phuket</div><div class="top-title">งานของฉัน</div><div id="welcome" class="small"></div></div></div><div class="row"><button class="ghost" id="enablePushBtn">เปิดแจ้งเตือน</button><button class="ghost" id="logoutBtn">ออกจากระบบ</button></div></div></header>
 <div class="wrap mobile-shell">
   <section class="panel mobile-focus-panel">
     <div class="section-head">
@@ -50,8 +50,9 @@ const enableBtn=document.getElementById('enablePushBtn'); if(enableBtn) enableBt
 
 const uploadState = {};
 let __lastStatusMap = new Map();
-let __hkDataCache = null;
+let __hkDataCache = { tasks: [] };
 async function visibleTasks(dataOverride){
+  if(Array.isArray(dataOverride)) return dataOverride;
   const data=dataOverride||await getData();
   return (data.tasks||[]).filter(t=>t.assignee && t.assignee===session.name);
 }
@@ -108,9 +109,8 @@ function hkCard(t){
   </article>`;
 }
 async function render(dataOverride){
-  const data=dataOverride||await getData();
-  __hkDataCache = data;
-  const tasks=await visibleTasks(data);
+  const tasks=await visibleTasks(dataOverride);
+  __hkDataCache = { tasks:[...tasks] };
   await detectStatusUpdates(tasks);
 
   document.getElementById('kNew').textContent = tasks.filter(t=>normalizeStatus(t.status)==='New from FO').length;
@@ -135,7 +135,7 @@ async function render(dataOverride){
 
 window.openTask=async id=>{await renderTaskDetail(id,'taskDetail','tasks');document.getElementById('taskDialog').showModal();};
 window.quickStart=async id=>{
-  const tasks=await getTasks(); 
+  const tasks=(__hkDataCache?.tasks?.length ? __hkDataCache.tasks : await getTasks()); 
   const t=tasks.find(x=>x.id===id); 
   if(!t || normalizeStatus(t.status)!=='New from FO') return;
   t.status='In Progress'; 
@@ -155,7 +155,7 @@ window.showUploadForDone = function(id){
 };
 
 window.sendToDone = async function(id){
-  const tasks=await getTasks(); 
+  const tasks=(__hkDataCache?.tasks?.length ? __hkDataCache.tasks : await getTasks()); 
   const t=tasks.find(x=>x.id===id); 
   if(!t || normalizeStatus(t.status)!=='In Progress') return;
 
@@ -181,12 +181,12 @@ window.sendToDone = async function(id){
   await render();
 };
 
-document.getElementById('hkSearch').addEventListener('input', ()=>render(__hkDataCache));
-document.getElementById('hkFilter').addEventListener('change', ()=>render(__hkDataCache));
+document.getElementById('hkSearch').addEventListener('input', ()=>render(__hkDataCache.tasks));
+document.getElementById('hkFilter').addEventListener('change', ()=>render(__hkDataCache.tasks));
 document.getElementById('submitForm').addEventListener('submit',async e=>{
   e.preventDefault();
   const id=document.getElementById('taskId').value; 
-  const tasks=await getTasks(); 
+  const tasks=(__hkDataCache?.tasks?.length ? __hkDataCache.tasks : await getTasks()); 
   const t=tasks.find(x=>x.id===id); 
   if(!t)return;
   const status=document.getElementById('status').value;
@@ -229,14 +229,28 @@ document.getElementById('submitForm').addEventListener('submit',async e=>{
   const fb = await checkFirebaseConnection();
   if(fb.ok) setFirebaseStatus('firebaseStatus','connected', fb.detail); else setFirebaseStatus('firebaseStatus', fb.mode, fb.detail);
   await seedData(); 
-  const firstData = await getData();
-  initializeSeenTasks(await visibleTasks(firstData));
-  await render(firstData);
-  if(isFirebaseReady()){
+  if(isFirebaseReady() && window.firebaseHelpers?.getTasksByAssignee){
+    const firstTasks = await window.firebaseHelpers.getTasksByAssignee(session.name);
+    initializeSeenTasks(firstTasks);
+    await render(firstTasks);
+  }else{
+    const firstData = await getData();
+    const relevant = await visibleTasks(firstData);
+    initializeSeenTasks(relevant);
+    await render(relevant);
+  }
+  if(isFirebaseReady() && window.firebaseHelpers?.subscribeTasksByAssignee){
+    window.firebaseHelpers.subscribeTasksByAssignee(session.name, async(tasks)=>{
+      alertForNewTasks(tasks, ()=>true);
+      await render(tasks);
+      const fb2=await checkFirebaseConnection();
+      if(fb2.ok) setFirebaseStatus('firebaseStatus','connected', fb2.detail);
+    });
+  } else if(isFirebaseReady()){
     const wait=setInterval(()=>{if(window.firebaseHelpers?.subscribe){clearInterval(wait);window.firebaseHelpers.subscribe(async(data)=>{
           const relevant = await visibleTasks(data);
           alertForNewTasks(relevant, ()=>true);
-          await render(data);
+          await render(relevant);
           const fb2=await checkFirebaseConnection();
           if(fb2.ok) setFirebaseStatus('firebaseStatus','connected', fb2.detail);
         })}},500);

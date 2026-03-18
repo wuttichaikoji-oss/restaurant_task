@@ -154,13 +154,16 @@ function roleLabel(role){
 function loadSession(){try{return JSON.parse(localStorage.getItem(SESSION_KEY)||'null')}catch{return null}}
 function saveSession(s){localStorage.setItem(SESSION_KEY,JSON.stringify(s))}
 function logout(){localStorage.removeItem(SESSION_KEY);location.href='index.html';}
+function destinationForRole(role){
+  if(role==='hk') return 'hk.html';
+  if(role==='fo' || role==='supervisor') return 'fo.html';
+  return 'index.html';
+}
 function login(code){
   const u=findUserByCode(code);
   if(!u)return false;
   saveSession({name:u.name,role:u.role,code:u.code,department:u.department||'',position:u.position||'',loginAt:new Date().toISOString()});
-  if(u.role==='fo') location.href='fo.html';
-  else if(u.role==='hk') location.href='hk.html';
-  else location.href='supervisor.html';
+  location.href = destinationForRole(u.role);
   return true;
 }
 function requireRole(roles){
@@ -168,12 +171,20 @@ function requireRole(roles){
   if(!s){location.href='index.html';throw new Error('No session')}
   const allowed = Array.isArray(roles)?roles:[roles];
   if(roles && !allowed.includes(s.role)){
-    if(s.role==='fo') location.href='fo.html';
-    else if(s.role==='hk') location.href='hk.html';
-    else location.href='supervisor.html';
+    location.href = destinationForRole(s.role);
     throw new Error('Wrong role');
   }
   return s;
+}
+async function clearAllAppData(confirmCode){
+  const expected = '943003';
+  if(String(confirmCode||'').trim() !== expected) throw new Error('รหัสล้างข้อมูลไม่ถูกต้อง');
+  if(isFirebaseReady() && window.firebaseHelpers?.replaceAllData){
+    await window.firebaseHelpers.replaceAllData({tasks:[], logs:[]});
+  }else{
+    saveLocalData({tasks:[], logs:[]});
+  }
+  return true;
 }
 function loadLocalData(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||'{"tasks":[],"logs":[]}')}catch{return {"tasks":[],"logs":[]}}}
 function saveLocalData(data){localStorage.setItem(STORAGE_KEY,JSON.stringify(data))}
@@ -353,12 +364,9 @@ async function checkFirebaseConnection(){
     if(!window.firebaseHelpers || !window.firebaseHelpers.getData){
       return {ok:false, mode:'config_only', detail:'โหลด Firebase helper ไม่สำเร็จ'};
     }
-    const data = await window.firebaseHelpers.getData();
-    return {
-      ok:true,
-      mode:'connected',
-      detail:`Tasks: ${(data.tasks||[]).length}, Logs: ${(data.logs||[]).length}`
-    };
+    const info = window.firebaseHelpers.getConnectionInfo ? window.firebaseHelpers.getConnectionInfo() : null;
+    const detail = info ? `พร้อมใช้งาน${info.cacheEnabled ? ' • cache on' : ''} • Tasks: ${info.taskCount} • Logs: ${info.logCount}` : 'พร้อมใช้งาน';
+    return { ok:true, mode:'connected', detail };
   }catch(err){
     return {ok:false, mode:'error', detail: err?.message || 'เชื่อมต่อไม่ได้'};
   }
