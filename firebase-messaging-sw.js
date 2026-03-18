@@ -1,7 +1,7 @@
 
 importScripts('https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.12.5/firebase-messaging-compat.js');
-importScripts('/firebase-config-sw.js');
+importScripts('./firebase-config-sw.js');
 firebase.initializeApp(self.FIREBASE_SW_CONFIG || {});
 const messaging = firebase.messaging();
 messaging.onBackgroundMessage((payload) => {
