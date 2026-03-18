@@ -51,18 +51,19 @@ const enableBtn=document.getElementById('enablePushBtn'); if(enableBtn) enableBt
 const uploadState = {};
 let __lastStatusMap = new Map();
 let __hkDataCache = null;
-const hkStaffNames = USERS.filter(u=>u.role==='hk').map(u=>u.name);
+function hkStaffNames(){ return getUsersSnapshot().filter(u=>u.role==='hk').map(u=>u.name); }
 
 async function visibleTasks(dataOverride){
   const data=dataOverride||await getData();
   return (data.tasks||[]).filter(t=>!t.assignee || t.assignee===session.name || t.status==='New from FO' || t.status==='In Progress' || t.status==='Done by HK');
 }
 function assignSelect(task){
-  return `<select id="assign-${task.id}" class="mini-select">${hkStaffNames.map(name=>`<option value="${escapeHtml(name)}" ${task.assignee===name?'selected':''}>${escapeHtml(name)}</option>`).join('')}</select>`;
+  const staff = hkStaffNames();
+  return `<select id="assign-${task.id}" class="mini-select">${staff.map(name=>`<option value="${escapeHtml(name)}" ${task.assignee===name?'selected':''}>${escapeHtml(name)}</option>`).join('')}</select>`;
 }
 function taskButtons(t){
   const status = normalizeStatus(t.status);
-  const select = hkStaffNames.length ? assignSelect(t) : '';
+  const select = hkStaffNames().length ? assignSelect(t) : '';
   if(status === 'New from FO'){
     return `<div class="assign-actions">
       <button onclick="openTask('${t.id}')">ดูรายละเอียด</button>
@@ -249,6 +250,7 @@ document.getElementById('submitForm').addEventListener('submit',async e=>{
 });
 
 (async()=>{
+  await ensureUsersReady();
   setFirebaseStatus('firebaseStatus','checking');
   const fb = await checkFirebaseConnection();
   if(fb.ok) setFirebaseStatus('firebaseStatus','connected', fb.detail); else setFirebaseStatus('firebaseStatus', fb.mode, fb.detail);
