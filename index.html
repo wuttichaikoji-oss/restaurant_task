@@ -1,7 +1,7 @@
 <!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>FO → HK Login v1.8</title><link rel="manifest" href="manifest.json"><link rel="stylesheet" href="styles.css"></head><body>
 <header><div class="wrap row space"><div class="brand"><div class="brand-logo-wrap brand-logo-wrap-header"><img class="brand-logo" src="assets/laya-logo.png" alt="Laya Resort Phuket"></div><div class="brand-copy"><div class="brand-sub">Laya Resort Phuket</div><div class="top-title">HOUSEKEEPING TASK</div><div class="small">Front Office → Housekeeping Workflow</div></div></div><button class="ghost" id="logoutBtn">ออกจากระบบ</button></div></header>
 <div class="wrap center"><div class="panel login-panel"><div class="hero"><div class="login-brand"><div class="brand-logo-wrap brand-logo-wrap-login"><img class="brand-logo" src="assets/laya-logo.png" alt="Laya Resort Phuket"></div></div><h1>เข้าสู่ระบบ</h1><p class="small">Concept: Front Office สั่งงาน HouseKeeping โดย FO เป็นผู้เปิดงาน และ HK เป็นผู้รับงาน/ทำงาน/ส่งกลับ</p></div><div class="grid">
-    <div class="firebase-status" id="firebaseStatus"></div><div><label>รหัสล็อกอิน</label><input id="code" type="password" placeholder="เช่น 1101 / 9101 / 9102"></div><button id="loginBtn">เข้าสู่ระบบ</button><div class="notice"><div><strong>บทบาท</strong></div><div>FO = เปิดงาน / ติดตาม / ปิดงาน</div><div>HK = รับงาน / ทำงาน / ส่งงานกลับ</div><div>Supervisor = ดูทั้งหมด</div></div><div class="notice"><div><strong>รหัสที่เปิดใช้งาน</strong></div><div id="demoUsers"></div></div><div class="notice"><div><strong>Notification Diagnostics</strong></div><div id="notifyDiag"></div></div></div></div></div>
+    <div class="firebase-status" id="firebaseStatus"></div><div><label>รหัสล็อกอิน</label><input id="code" type="password" placeholder="เช่น 1101 / 9101 / 9102"></div><button id="loginBtn">เข้าสู่ระบบ</button><div class="notice"><div><strong>บทบาท</strong></div><div>FO = เปิดงาน / ติดตาม / ปิดงาน</div><div>HK = รับงาน / ทำงาน / ส่งงานกลับ</div><div>Supervisor = ดูทั้งหมด</div></div></div></div></div>
 <script src="firebase-config.js"></script><script src="users-config.js"></script><script src="firebase-helpers.js"></script><script src="common.js"></script>
 <script>
 const existingSession = loadSession();
@@ -19,10 +19,8 @@ else if(existingSession?.role==='supervisor') location.replace('fo.html');
 (async()=>{
   try{ await ensureUsersReady(); }catch(err){ console.warn('load users failed', err); }
   try{ await seedData(); }catch(err){ console.warn('seed data skipped', err); }
-  document.getElementById('demoUsers').innerHTML=getUsersSnapshot().map(u=>`${u.name} = ${u.code} (${u.role})`).join('<br>');
   document.getElementById('logoutBtn').onclick=logout;
 })();
-(async()=>{ const d = await runNotificationDiagnostics(); document.getElementById('notifyDiag').innerHTML = diagnosticsHTML(d); })();
 document.getElementById('loginBtn').onclick=async()=>{
   try{ await ensureUsersReady(); }catch(err){ console.warn('login fallback to local users', err); }
   const ok=login(document.getElementById('code').value);
