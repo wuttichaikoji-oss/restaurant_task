@@ -170,3 +170,18 @@ function splitActiveAndLegacyTasks(tasks){
   }
   return {active, legacy};
 }
+
+async function enableNotificationsForCurrentUser(session, elId){
+  try{
+    if(!isFirebaseReady()) throw new Error('ยังไม่ได้เชื่อม Firebase');
+    setFirebaseStatus(elId,'checking','กำลังเปิดการแจ้งเตือน...');
+    await window.firebaseHelpers.registerDeviceToken(session);
+    const fb = await checkFirebaseConnection();
+    if(fb.ok) setFirebaseStatus(elId,'connected', (fb.detail ? fb.detail + ' • เปิดแจ้งเตือนแล้ว' : 'เปิดแจ้งเตือนแล้ว'));
+    else setFirebaseStatus(elId,'connected','เปิดแจ้งเตือนแล้ว');
+    alert('เปิดแจ้งเตือนสำเร็จ');
+  }catch(err){
+    setFirebaseStatus(elId,'error', err?.message || 'เปิดแจ้งเตือนไม่สำเร็จ');
+    alert('เปิดแจ้งเตือนไม่สำเร็จ: ' + (err?.message || 'unknown'));
+  }
+}

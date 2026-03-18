@@ -1,4 +1,3 @@
-
 window.firebaseHelpers = null;
 (async function(){
   if(!window.FIREBASE_ENABLED) return;
@@ -51,7 +50,20 @@ window.firebaseHelpers = null;
         const swReg = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
         const token = await msgMod.getToken(messaging,{vapidKey:window.FIREBASE_VAPID_KEY,serviceWorkerRegistration:swReg});
         if(!token) throw new Error("ไม่สามารถสร้าง token ได้");
-        await fsMod.setDoc(fsMod.doc(db, tokenCol, token), {token,userName:session?.name||'',role:session?.role||'',updatedAt:new Date().toISOString(),userAgent:navigator.userAgent});
+        await fsMod.setDoc(fsMod.doc(db, tokenCol, token), {
+          token,
+          userName:session?.name||'',
+          role:session?.role||'',
+          department:session?.department||'',
+          updatedAt:new Date().toISOString(),
+          userAgent:navigator.userAgent,
+          enabled:true
+        });
+        msgMod.onMessage(messaging,(payload)=>{
+          const title = payload?.notification?.title || 'มีงานใหม่จาก Front Office';
+          const body = payload?.notification?.body || '';
+          if(Notification.permission==='granted'){ new Notification(title,{body}); }
+        });
         return token;
       }
     };

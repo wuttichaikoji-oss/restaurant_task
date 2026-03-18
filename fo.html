@@ -1,5 +1,5 @@
 <!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Front Office</title><link rel="stylesheet" href="styles.css"></head><body>
-<header><div class="wrap row space"><div><div class="top-title">FRONT OFFICE</div><div id="welcome" class="small"></div></div><div class="row"><a href="fo.html" class="ghost">หน้า FO</a><a href="board.html" class="ghost">บอร์ดรวม</a><a href="log.html" class="ghost">LOG / Report</a><button class="ghost" id="logoutBtn">ออกจากระบบ</button></div></div></header>
+<header><div class="wrap row space"><div><div class="top-title">FRONT OFFICE</div><div id="welcome" class="small"></div></div><div class="row"><a href="fo.html" class="ghost">หน้า FO</a><a href="board.html" class="ghost">บอร์ดรวม</a><a href="log.html" class="ghost">LOG / Report</a><button class="ghost" id="enablePushBtn">เปิดแจ้งเตือน</button><button class="ghost" id="logoutBtn">ออกจากระบบ</button></div></div></header>
 <div class="wrap grid grid-2">
   <div class="panel"><div class="section-head"><h2 class="section-title">เปิดงานให้ HouseKeeping</h2><div id="firebaseStatus" class="firebase-inline"></div></div>
     <form id="taskForm" class="grid">
@@ -27,6 +27,7 @@
 const session=requireRole('fo');
 document.getElementById('welcome').textContent='ผู้ใช้งาน: '+session.name;
 document.getElementById('logoutBtn').onclick=logout;
+document.getElementById('enablePushBtn').onclick=()=>enableNotificationsForCurrentUser(session,'firebaseStatus');
 document.getElementById('dueAt').value=nowIsoLocal();
 async function render(dataOverride){
   const data=dataOverride||await getData();
