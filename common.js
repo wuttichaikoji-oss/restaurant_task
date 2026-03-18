@@ -1,6 +1,7 @@
 
 const STORAGE_KEY='hk_tasks_v1_9', SESSION_KEY='hk_session_v1_9';
 const STATUSES=['New from FO','In Progress','Done by HK'];
+const ACTIVE_STATUSES = new Set(STATUSES);
 const USERS=window.APP_USERS||[];
 const fmtDate=d=>d?new Date(d).toLocaleString('th-TH'):'-';
 const uid=()=>Math.random().toString(36).slice(2,10);
@@ -153,3 +154,19 @@ async function checkFirebaseConnection(){
   }
 }
 
+
+function normalizeStatus(status){
+  return typeof status === 'string' ? status.trim() : '';
+}
+function isActiveBoardStatus(status){
+  return ACTIVE_STATUSES.has(normalizeStatus(status));
+}
+function splitActiveAndLegacyTasks(tasks){
+  const active = [];
+  const legacy = [];
+  for(const t of (tasks||[])){
+    if(isActiveBoardStatus(t.status)) active.push(t);
+    else legacy.push(t);
+  }
+  return {active, legacy};
+}

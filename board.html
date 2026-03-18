@@ -2,7 +2,13 @@
 <header><div class="wrap row space"><div><div class="top-title">HOUSEKEEPING TASK</div><div id="welcome" class="small"></div></div><div class="row" id="navLinks"></div></div></header>
 <div class="wrap">
   <div id="firebaseStatus" class="firebase-inline" style="margin-bottom:14px;"></div>
-  <div class="stats"><div class="stat"><div class="small">งานทั้งหมด</div><div class="n" id="sAll">0</div></div><div class="stat"><div class="small">New from FO</div><div class="n" id="sNew">0</div></div><div class="stat"><div class="small">In Progress</div><div class="n" id="sProg">0</div></div><div class="stat"><div class="small">Done by HK</div><div class="n" id="sDone">0</div></div></div>
+  <div id="legacyNotice" class="notice" style="display:none;margin-bottom:14px;"></div>
+  <div class="stats">
+    <div class="stat"><div class="small">งานบนบอร์ดจริง</div><div class="n" id="sAll">0</div></div>
+    <div class="stat"><div class="small">New from FO</div><div class="n" id="sNew">0</div></div>
+    <div class="stat"><div class="small">In Progress</div><div class="n" id="sProg">0</div></div>
+    <div class="stat"><div class="small">Done by HK</div><div class="n" id="sDone">0</div></div>
+  </div>
   <div id="board" class="board"></div>
 </div>
 <dialog id="taskDialog"><div class="body"><div id="taskDetail"></div><div class="actions"><button class="ghost" onclick="document.getElementById('taskDialog').close()">ปิด</button></div></div></dialog>
@@ -15,23 +21,60 @@ if (session.role === 'fo') nav.innerHTML = '<a href="fo.html" class="ghost">ห�
 else if (session.role === 'hk') nav.innerHTML = '<a href="hk.html" class="ghost">หน้า HK</a><a href="board.html" class="ghost">บอร์ดรวม</a><a href="log.html" class="ghost">LOG / Report</a><button class="ghost" id="logoutBtn">ออกจากระบบ</button>';
 else nav.innerHTML = '<a href="supervisor.html" class="ghost">Supervisor</a><a href="board.html" class="ghost">บอร์ดรวม</a><a href="log.html" class="ghost">LOG / Report</a><button class="ghost" id="logoutBtn">ออกจากระบบ</button>';
 document.getElementById('logoutBtn').onclick = logout;
-function card(t){return `<article class="task"><h4>${escapeHtml(t.title)}</h4><div class="meta">${escapeHtml(taskLocationText(t))}</div><div class="meta">FO: ${escapeHtml(t.requestedBy||'-')}</div><div class="meta">HK: ${escapeHtml(t.assignee||'-')}</div><div class="badges">${statusBadge(t)}</div><div class="actions"><button class="good" onclick="openTask('${t.id}')">ดูรายละเอียด</button></div></article>`;}
-async function render(dataOverride){
-  const data=dataOverride||await getData(); const tasks=data.tasks||[];
-  document.getElementById('sAll').textContent = tasks.length;
-  document.getElementById('sNew').textContent = tasks.filter(t=>t.status==='New from FO').length;
-  document.getElementById('sProg').textContent = tasks.filter(t=>t.status==='In Progress').length;
-  document.getElementById('sDone').textContent = tasks.filter(t=>t.status==='Done by HK').length;
-  document.getElementById('board').innerHTML = STATUSES.map(s=>`<section class="column"><h3>${s} <span class="small">(${tasks.filter(t=>t.status===s).length})</span></h3>${tasks.filter(t=>t.status===s).map(card).join('') || '<div class="small">ไม่มีงาน</div>'}</section>`).join('');
+
+function card(t){
+  return `<article class="task">
+    <h4>${escapeHtml(t.title)}</h4>
+    <div class="meta">${escapeHtml(taskLocationText(t))}</div>
+    <div class="meta">FO: ${escapeHtml(t.requestedBy||'-')}</div>
+    <div class="meta">HK: ${escapeHtml(t.assignee||'-')}</div>
+    <div class="badges">${statusBadge(t)}</div>
+    <div class="actions"><button class="good" onclick="openTask('${t.id}')">ดูรายละเอียด</button></div>
+  </article>`;
 }
-window.openTask=async id=>{await renderTaskDetail(id,'taskDetail','tasks');document.getElementById('taskDialog').showModal();};
+async function render(dataOverride){
+  const data = dataOverride || await getData();
+  const rawTasks = data.tasks || [];
+  const {active, legacy} = splitActiveAndLegacyTasks(rawTasks);
+
+  document.getElementById('sAll').textContent = active.length;
+  document.getElementById('sNew').textContent = active.filter(t=>normalizeStatus(t.status)==='New from FO').length;
+  document.getElementById('sProg').textContent = active.filter(t=>normalizeStatus(t.status)==='In Progress').length;
+  document.getElementById('sDone').textContent = active.filter(t=>normalizeStatus(t.status)==='Done by HK').length;
+
+  const legacyNotice = document.getElementById('legacyNotice');
+  if(legacy.length){
+    const statuses = [...new Set(legacy.map(t => normalizeStatus(t.status) || 'ไม่มีสถานะ'))].join(', ');
+    legacyNotice.style.display = 'block';
+    legacyNotice.innerHTML = `ซ่อนงานสถานะเก่าที่ไม่อยู่ใน workflow ปัจจุบันแล้ว ${legacy.length} งาน เพื่อให้จำนวนบนบอร์ดตรงกับการ์ดจริง <span class="small">สถานะที่ซ่อน: ${escapeHtml(statuses)}</span>`;
+  }else{
+    legacyNotice.style.display = 'none';
+    legacyNotice.innerHTML = '';
+  }
+
+  document.getElementById('board').innerHTML = STATUSES.map(s=>`<section class="column"><h3>${s} <span class="small">(${active.filter(t=>normalizeStatus(t.status)===s).length})</span></h3>${active.filter(t=>normalizeStatus(t.status)===s).map(card).join('') || '<div class="small">ไม่มีงาน</div>'}</section>`).join('');
+}
+window.openTask = async id => { await renderTaskDetail(id,'taskDetail','tasks'); document.getElementById('taskDialog').showModal(); };
+
 (async()=>{
   setFirebaseStatus('firebaseStatus','checking');
   const fb = await checkFirebaseConnection();
-  if(fb.ok) setFirebaseStatus('firebaseStatus','connected', fb.detail); else setFirebaseStatus('firebaseStatus', fb.mode, fb.detail);
-  await seedData(); await render();
+  if(fb.ok) setFirebaseStatus('firebaseStatus','connected', fb.detail);
+  else setFirebaseStatus('firebaseStatus', fb.mode, fb.detail);
+
+  await seedData();
+  await render();
   if(isFirebaseReady()){
-    const wait=setInterval(()=>{if(window.firebaseHelpers?.subscribe){clearInterval(wait);window.firebaseHelpers.subscribe(async(data)=>{await render(data); const fb2=await checkFirebaseConnection(); if(fb2.ok) setFirebaseStatus('firebaseStatus','connected', fb2.detail);})}},500);
+    const wait = setInterval(()=>{
+      if(window.firebaseHelpers?.subscribe){
+        clearInterval(wait);
+        window.firebaseHelpers.subscribe(async(data)=>{
+          await render(data);
+          const fb2 = await checkFirebaseConnection();
+          if(fb2.ok) setFirebaseStatus('firebaseStatus','connected', fb2.detail);
+        });
+      }
+    },500);
   }
 })();
 </script></body></html>
