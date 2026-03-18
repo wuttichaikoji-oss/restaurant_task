@@ -10,9 +10,9 @@ window.FIREBASE_CONFIG = {
 window.FIREBASE_TASKS_COLLECTION = "hk_tasks_v19";
 window.FIREBASE_LOGS_COLLECTION = "hk_logs_v19";
 window.FIREBASE_DEVICE_TOKENS_COLLECTION = "device_tokens";
-window.FIREBASE_VAPID_KEY = "REPLACE_ME";
+window.FIREBASE_VAPID_KEY = "BOHZpr8xEZPy4HosWSPAoH3Hn_Z-Ffc9loom3LRtq6iRWODv-NSWjYzmgN23ZOL7agsK1NRY_JlbZIl-CnHKh8w";
 window.FIREBASE_ENABLED = (
   window.FIREBASE_CONFIG &&
   window.FIREBASE_CONFIG.projectId &&
-  window.FIREBASE_CONFIG.projectId !== "REPLACE_ME"
+  window.FIREBASE_CONFIG.projectId !== "hk-task-12b10"
 );
