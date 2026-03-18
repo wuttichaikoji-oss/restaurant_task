@@ -113,9 +113,7 @@ async function renderTaskDetail(id,targetId='taskDetail', source='tasks'){
   <div>${(t.comments||[]).length?t.comments.map(c=>`<div class="task"><div><strong>${escapeHtml(c.by||'-')}</strong> <span class="small">${fmtDate(c.at)}</span></div><div>${escapeHtml(c.text)}</div></div>`).join(''):'<div class="small">ยังไม่มีคอมเมนต์</div>'}</div>`;
 }
 function toast(msg){alert(msg)}
-function setFirebaseStatus(elId, state, detail=''){
-  const el = document.getElementById(elId);
-  if(!el) return;
+function firebaseStatusHTML(state, detail=''){
   const map = {
     checking: {label:'กำลังตรวจสอบ Firebase...', cls:'badge'},
     connected: {label:'เชื่อม Firebase สำเร็จ', cls:'badge ok'},
@@ -124,7 +122,12 @@ function setFirebaseStatus(elId, state, detail=''){
     error: {label:'Firebase มีปัญหา', cls:'badge urgent'}
   };
   const item = map[state] || map.error;
-  el.innerHTML = `<span class="${item.cls}">${item.label}</span>${detail ? ` <span class="small">${escapeHtml(detail)}</span>` : ''}`;
+  return `<span class="${item.cls}">${item.label}</span>${detail ? ` <span class="small">${escapeHtml(detail)}</span>` : ''}`;
+}
+function setFirebaseStatus(elId, state, detail=''){
+  const el = document.getElementById(elId);
+  if(!el) return;
+  el.innerHTML = firebaseStatusHTML(state, detail);
 }
 async function checkFirebaseConnection(){
   try{

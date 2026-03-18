@@ -1,30 +1,25 @@
-<!doctype html><html lang="th"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Supervisor</title><link rel="stylesheet" href="styles.css"></head><body>
-<header><div class="wrap row space">
-  <div><div class="top-title">SUPERVISOR</div><div id="welcome" class="small"></div></div>
-  <div class="row"><a href="board.html" class="ghost">บอร์ดรวม</a><a href="log.html" class="ghost">LOG / Report</a><a href="fo.html" class="ghost">หน้า FO</a><a href="hk.html" class="ghost">หน้า HK</a><button class="ghost" id="logoutBtn">ออกจากระบบ</button></div>
-</div></header>
-<div class="wrap"><div class="panel"><h2 class="section-title">ภาพรวมระบบ</h2><div id="allTasks"></div></div></div>
-    <div class="firebase-status" id="firebaseStatus"></div>
+<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Supervisor</title><link rel="stylesheet" href="styles.css"></head><body>
+<header><div class="wrap row space"><div><div class="top-title">SUPERVISOR</div><div id="welcome" class="small"></div></div><div class="row"><a href="board.html" class="ghost">บอร์ดรวม</a><a href="log.html" class="ghost">LOG / Report</a><a href="fo.html" class="ghost">หน้า FO</a><a href="hk.html" class="ghost">หน้า HK</a><button class="ghost" id="logoutBtn">ออกจากระบบ</button></div></div></header>
+<div class="wrap">
+  <div id="firebaseStatus" class="firebase-inline" style="margin-bottom:14px;"></div>
+  <div class="panel"><h2 class="section-title">ภาพรวมระบบ</h2><div id="allTasks"></div></div>
+</div>
 <script src="firebase-config.js"></script><script src="users-config.js"></script><script src="firebase-helpers.js"></script><script src="common.js"></script>
 <script>
-(async()=>{
-  setFirebaseStatus('firebaseStatus','checking');
-  const fb = await checkFirebaseConnection();
-  if(fb.ok) setFirebaseStatus('firebaseStatus','connected', fb.detail);
-  else setFirebaseStatus('firebaseStatus', fb.mode, fb.detail);
-})();
-
 const session=requireRole('supervisor');
 document.getElementById('welcome').textContent='ผู้ใช้งาน: '+session.name;
 document.getElementById('logoutBtn').onclick=logout;
 async function render(dataOverride){
-  const data=dataOverride||await getData();
-  const tasks=data.tasks||[], logs=data.logs||[];
-  document.getElementById('allTasks').innerHTML =
-    `<div class="stats"><div class="stat"><div class="small">Active Tasks</div><div class="n">${tasks.length}</div></div><div class="stat"><div class="small">Closed Logs</div><div class="n">${logs.length}</div></div><div class="stat"><div class="small">In Progress</div><div class="n">${tasks.filter(t=>t.status==='In Progress').length}</div></div><div class="stat"><div class="small">Done by HK</div><div class="n">${tasks.filter(t=>t.status==='Done by HK').length}</div></div></div>` +
-    tasks.map(t=>`<article class="task"><h4>${escapeHtml(t.title)}</h4><div class="meta">${escapeHtml(taskLocationText(t))}</div><div class="meta">FO: ${escapeHtml(t.requestedBy||'-')} • HK: ${escapeHtml(t.assignee||'-')} • สถานะ: ${escapeHtml(t.status)}</div></article>`).join('') || '<div class="small">ยังไม่มีงาน</div>';
+  const data=dataOverride||await getData(); const tasks=data.tasks||[], logs=data.logs||[];
+  document.getElementById('allTasks').innerHTML = `<div class="stats"><div class="stat"><div class="small">Active Tasks</div><div class="n">${tasks.length}</div></div><div class="stat"><div class="small">Closed Logs</div><div class="n">${logs.length}</div></div><div class="stat"><div class="small">In Progress</div><div class="n">${tasks.filter(t=>t.status==='In Progress').length}</div></div><div class="stat"><div class="small">Done by HK</div><div class="n">${tasks.filter(t=>t.status==='Done by HK').length}</div></div></div>` + (tasks.map(t=>`<article class="task"><h4>${escapeHtml(t.title)}</h4><div class="meta">${escapeHtml(taskLocationText(t))}</div><div class="meta">FO: ${escapeHtml(t.requestedBy||'-')} • HK: ${escapeHtml(t.assignee||'-')} • สถานะ: ${escapeHtml(t.status)}</div></article>`).join('') || '<div class="small">ยังไม่มีงาน</div>');
 }
-(async()=>{await seedData();await render();if(isFirebaseReady()){const wait=setInterval(()=>{if(window.firebaseHelpers?.subscribe){clearInterval(wait);window.firebaseHelpers.subscribe(render)}},500)}})();
+(async()=>{
+  setFirebaseStatus('firebaseStatus','checking');
+  const fb = await checkFirebaseConnection();
+  if(fb.ok) setFirebaseStatus('firebaseStatus','connected', fb.detail); else setFirebaseStatus('firebaseStatus', fb.mode, fb.detail);
+  await seedData(); await render();
+  if(isFirebaseReady()){
+    const wait=setInterval(()=>{if(window.firebaseHelpers?.subscribe){clearInterval(wait);window.firebaseHelpers.subscribe(async(data)=>{await render(data); const fb2=await checkFirebaseConnection(); if(fb2.ok) setFirebaseStatus('firebaseStatus','connected', fb2.detail);})}},500);
+  }
+})();
 </script></body></html>

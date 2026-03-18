@@ -1,14 +1,15 @@
-<!doctype html><html lang="th"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>HouseKeeping</title><link rel="stylesheet" href="styles.css"></head><body>
-<header><div class="wrap row space">
-  <div><div class="top-title">HOUSEKEEPING</div><div id="welcome" class="small"></div></div>
-  <div class="row"><a href="hk.html" class="ghost">หน้า HK</a><a href="board.html" class="ghost">บอร์ดรวม</a><a href="log.html" class="ghost">LOG / Report</a><button class="ghost" id="logoutBtn">ออกจากระบบ</button></div>
-</div></header>
+<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>HouseKeeping</title><link rel="stylesheet" href="styles.css"></head><body>
+<header><div class="wrap row space"><div><div class="top-title">HOUSEKEEPING</div><div id="welcome" class="small"></div></div><div class="row"><a href="hk.html" class="ghost">หน้า HK</a><a href="board.html" class="ghost">บอร์ดรวม</a><a href="log.html" class="ghost">LOG / Report</a><button class="ghost" id="logoutBtn">ออกจากระบบ</button></div></div></header>
 <div class="wrap grid grid-2">
-  <div class="panel"><h2 class="section-title">งานของ HK</h2><div id="hkTasks"></div></div>
-    <div class="firebase-status" id="firebaseStatus"></div>
-  <div class="panel"><h2 class="section-title">อัปเดตงาน</h2>
+  <div class="panel"><div class="section-head"><h2 class="section-title">งานของ HK</h2><div id="firebaseStatus" class="firebase-inline"></div></div>
+    <div class="kpi-strip">
+      <div class="kpi-mini"><div class="small">งานใหม่จาก FO</div><div class="n" id="kNew">0</div></div>
+      <div class="kpi-mini"><div class="small">กำลังทำ</div><div class="n" id="kProg">0</div></div>
+      <div class="kpi-mini"><div class="small">รอ FO ปิดงาน</div><div class="n" id="kDone">0</div></div>
+    </div>
+    <div id="hkTasks"></div>
+  </div>
+  <div class="panel"><div class="section-head"><h2 class="section-title">อัปเดตงาน</h2></div>
     <form id="submitForm" class="grid">
       <div><label>เลือกงาน</label><select id="taskId"></select></div>
       <div><label>เปลี่ยนสถานะ</label><select id="status"><option>In Progress</option><option>Done by HK</option></select></div>
@@ -21,39 +22,51 @@
 <dialog id="taskDialog"><div class="body"><div id="taskDetail"></div><div class="actions"><button class="ghost" onclick="document.getElementById('taskDialog').close()">ปิด</button></div></div></dialog>
 <script src="firebase-config.js"></script><script src="users-config.js"></script><script src="firebase-helpers.js"></script><script src="common.js"></script>
 <script>
-(async()=>{
-  setFirebaseStatus('firebaseStatus','checking');
-  const fb = await checkFirebaseConnection();
-  if(fb.ok) setFirebaseStatus('firebaseStatus','connected', fb.detail);
-  else setFirebaseStatus('firebaseStatus', fb.mode, fb.detail);
-})();
-
 const session=requireRole('hk');
 document.getElementById('welcome').textContent='ผู้ใช้งาน: '+session.name;
 document.getElementById('logoutBtn').onclick=logout;
-async function visibleTasks(dataOverride){
-  const data=dataOverride||await getData();
-  return (data.tasks||[]).filter(t=>!t.assignee || t.assignee===session.name || t.status==='New from FO');
+async function visibleTasks(dataOverride){const data=dataOverride||await getData(); return (data.tasks||[]).filter(t=>!t.assignee || t.assignee===session.name || t.status==='New from FO');}
+function taskButtons(t){
+  const canStart = t.status === 'New from FO';
+  const canDone = t.status === 'In Progress';
+  return `<div class="actions"><button onclick="openTask('${t.id}')">ดู</button><button class="good" ${canStart?'':'disabled'} onclick="quickStart('${t.id}')">In Progress</button><button class="warn" ${canDone?'':'disabled'} onclick="quickDone('${t.id}')">Done by HK</button></div>`;
 }
 async function render(dataOverride){
-  const tasks=await visibleTasks(dataOverride);
-  document.getElementById('hkTasks').innerHTML = tasks.map(t=>`<article class="task"><h4>${escapeHtml(t.title)}</h4><div class="meta">${escapeHtml(taskLocationText(t))}</div><div class="meta">FO: ${escapeHtml(t.requestedBy||'-')} • สถานะ: ${escapeHtml(t.status)}</div><div class="badges">${statusBadge(t)}</div><div class="actions"><button onclick="openTask('${t.id}')">ดู</button><button class="good" onclick="quickStart('${t.id}')">In Progress</button><button class="warn" onclick="quickDone('${t.id}')">Done by HK</button></div></article>`).join('')||'<div class="small">ยังไม่มีงาน</div>';
-  document.getElementById('taskId').innerHTML = tasks.map(t=>`<option value="${t.id}">${escapeHtml(t.title)} (${escapeHtml(t.room||'-')})</option>`).join('');
+  const data=dataOverride||await getData();
+  const tasks=await visibleTasks(data);
+  document.getElementById('kNew').textContent = tasks.filter(t=>t.status==='New from FO').length;
+  document.getElementById('kProg').textContent = tasks.filter(t=>t.status==='In Progress').length;
+  document.getElementById('kDone').textContent = tasks.filter(t=>t.status==='Done by HK').length;
+  document.getElementById('hkTasks').innerHTML = tasks.map(t=>`<article class="task ${t.status==='Done by HK'?'disabled-action':''}"><h4>${escapeHtml(t.title)}</h4><div class="meta">${escapeHtml(taskLocationText(t))}</div><div class="meta">FO: ${escapeHtml(t.requestedBy||'-')} • สถานะ: ${escapeHtml(t.status)}</div><div class="badges">${statusBadge(t)}</div>${taskButtons(t)}</article>`).join('')||'<div class="small">ยังไม่มีงาน</div>';
+  const editable = tasks.filter(t=>['New from FO','In Progress'].includes(t.status));
+  document.getElementById('taskId').innerHTML = editable.map(t=>`<option value="${t.id}">${escapeHtml(t.title)} (${escapeHtml(t.room||'-')})</option>`).join('');
+  [...document.querySelectorAll('#submitForm input, #submitForm textarea, #submitForm select, #submitForm button')].forEach(el=>{ el.disabled = editable.length ? false : true; });
+  document.getElementById('submitForm').style.opacity = editable.length ? '1' : '.65';
 }
 window.openTask=async id=>{await renderTaskDetail(id,'taskDetail','tasks');document.getElementById('taskDialog').showModal();};
-window.quickStart=async id=>{const tasks=await getTasks();const t=tasks.find(x=>x.id===id);if(!t)return;t.status='In Progress';t.assignee=session.name;if(!t.startedAt)t.startedAt=new Date().toISOString();t.comments||=[];t.comments.unshift({at:new Date().toISOString(),by:session.name,text:'HK เริ่มดำเนินการ'});await updateTask(t);await render();};
-window.quickDone=async id=>{const tasks=await getTasks();const t=tasks.find(x=>x.id===id);if(!t)return;t.status='Done by HK';t.assignee=session.name;if(!t.startedAt)t.startedAt=new Date().toISOString();t.doneAt=new Date().toISOString();t.comments||=[];t.comments.unshift({at:new Date().toISOString(),by:session.name,text:'HK ทำเสร็จแล้ว'});await updateTask(t);await render();};
+window.quickStart=async id=>{const tasks=await getTasks(); const t=tasks.find(x=>x.id===id); if(!t || t.status!=='New from FO') return; t.status='In Progress'; t.assignee=session.name; if(!t.startedAt) t.startedAt=new Date().toISOString(); t.comments||=[]; t.comments.unshift({at:new Date().toISOString(),by:session.name,text:'HK เริ่มดำเนินการ'}); await updateTask(t); await render();};
+window.quickDone=async id=>{const tasks=await getTasks(); const t=tasks.find(x=>x.id===id); if(!t || t.status!=='In Progress') return; t.status='Done by HK'; t.assignee=session.name; if(!t.startedAt) t.startedAt=new Date().toISOString(); t.doneAt=new Date().toISOString(); t.comments||=[]; t.comments.unshift({at:new Date().toISOString(),by:session.name,text:'HK ทำเสร็จแล้ว'}); await updateTask(t); await render();};
 document.getElementById('submitForm').addEventListener('submit',async e=>{
   e.preventDefault();
   const id=document.getElementById('taskId').value; const tasks=await getTasks(); const t=tasks.find(x=>x.id===id); if(!t)return;
   const status=document.getElementById('status').value;
+  if(t.status==='Done by HK') return;
+  if(status==='In Progress' && t.status!=='New from FO') return;
+  if(status==='Done by HK' && t.status!=='In Progress') return;
   t.status=status; t.assignee=session.name;
   if(status==='In Progress' && !t.startedAt) t.startedAt=new Date().toISOString();
   if(status==='Done by HK'){ if(!t.startedAt) t.startedAt=new Date().toISOString(); t.doneAt=new Date().toISOString(); }
   t.images||=[]; const imgs=await readFiles(document.getElementById('images').files); t.images.unshift(...imgs);
-  const comment=document.getElementById('comment').value.trim();
-  t.comments||=[]; if(comment){t.comments.unshift({at:new Date().toISOString(),by:session.name,text:comment});}
+  const comment=document.getElementById('comment').value.trim(); t.comments||=[]; if(comment){t.comments.unshift({at:new Date().toISOString(),by:session.name,text:comment});}
   await updateTask(t); document.getElementById('submitForm').reset(); await render(); alert('บันทึกเรียบร้อย');
 });
-(async()=>{await seedData();await render();if(isFirebaseReady()){const wait=setInterval(()=>{if(window.firebaseHelpers?.subscribe){clearInterval(wait);window.firebaseHelpers.subscribe(render)}},500)}})();
+(async()=>{
+  setFirebaseStatus('firebaseStatus','checking');
+  const fb = await checkFirebaseConnection();
+  if(fb.ok) setFirebaseStatus('firebaseStatus','connected', fb.detail); else setFirebaseStatus('firebaseStatus', fb.mode, fb.detail);
+  await seedData(); await render();
+  if(isFirebaseReady()){
+    const wait=setInterval(()=>{if(window.firebaseHelpers?.subscribe){clearInterval(wait);window.firebaseHelpers.subscribe(async(data)=>{await render(data); const fb2=await checkFirebaseConnection(); if(fb2.ok) setFirebaseStatus('firebaseStatus','connected', fb2.detail);})}},500);
+  }
+})();
 </script></body></html>

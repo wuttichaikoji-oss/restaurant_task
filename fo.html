@@ -1,13 +1,7 @@
-<!doctype html><html lang="th"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Front Office</title><link rel="stylesheet" href="styles.css"></head><body>
-<header><div class="wrap row space">
-  <div><div class="top-title">FRONT OFFICE</div><div id="welcome" class="small"></div></div>
-  <div class="row"><a href="fo.html" class="ghost">หน้า FO</a><a href="board.html" class="ghost">บอร์ดรวม</a><a href="log.html" class="ghost">LOG / Report</a><button class="ghost" id="logoutBtn">ออกจากระบบ</button></div>
-</div></header>
+<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Front Office</title><link rel="stylesheet" href="styles.css"></head><body>
+<header><div class="wrap row space"><div><div class="top-title">FRONT OFFICE</div><div id="welcome" class="small"></div></div><div class="row"><a href="fo.html" class="ghost">หน้า FO</a><a href="board.html" class="ghost">บอร์ดรวม</a><a href="log.html" class="ghost">LOG / Report</a><button class="ghost" id="logoutBtn">ออกจากระบบ</button></div></div></header>
 <div class="wrap grid grid-2">
-  <div class="panel"><h2 class="section-title">เปิดงานให้ HouseKeeping</h2>
-    <div class="firebase-status" id="firebaseStatus"></div>
+  <div class="panel"><div class="section-head"><h2 class="section-title">เปิดงานให้ HouseKeeping</h2><div id="firebaseStatus" class="firebase-inline"></div></div>
     <form id="taskForm" class="grid">
       <div><label>ชื่องาน</label><input id="title" required></div>
       <div><label>รายละเอียด</label><textarea id="desc"></textarea></div>
@@ -25,18 +19,11 @@
       <button class="good">ส่งงานไป HK</button>
     </form>
   </div>
-  <div class="panel"><h2 class="section-title">งานที่ FO เปิด</h2><div id="foTasks"></div></div>
+  <div class="panel"><div class="section-head"><h2 class="section-title">งานที่ FO เปิด</h2></div><div id="foTasks"></div></div>
 </div>
 <dialog id="taskDialog"><div class="body"><div id="taskDetail"></div><div class="actions"><button class="ghost" onclick="document.getElementById('taskDialog').close()">ปิด</button></div></div></dialog>
 <script src="firebase-config.js"></script><script src="users-config.js"></script><script src="firebase-helpers.js"></script><script src="common.js"></script>
 <script>
-(async()=>{
-  setFirebaseStatus('firebaseStatus','checking');
-  const fb = await checkFirebaseConnection();
-  if(fb.ok) setFirebaseStatus('firebaseStatus','connected', fb.detail);
-  else setFirebaseStatus('firebaseStatus', fb.mode, fb.detail);
-})();
-
 const session=requireRole('fo');
 document.getElementById('welcome').textContent='ผู้ใช้งาน: '+session.name;
 document.getElementById('logoutBtn').onclick=logout;
@@ -57,5 +44,13 @@ document.getElementById('taskForm').addEventListener('submit',async e=>{
   document.getElementById('dueAt').value=nowIsoLocal();
   await render();
 });
-(async()=>{await seedData();await render();if(isFirebaseReady()){const wait=setInterval(()=>{if(window.firebaseHelpers?.subscribe){clearInterval(wait);window.firebaseHelpers.subscribe(render)}},500)}})();
+(async()=>{
+  setFirebaseStatus('firebaseStatus','checking');
+  const fb = await checkFirebaseConnection();
+  if(fb.ok) setFirebaseStatus('firebaseStatus','connected', fb.detail); else setFirebaseStatus('firebaseStatus', fb.mode, fb.detail);
+  await seedData(); await render();
+  if(isFirebaseReady()){
+    const wait=setInterval(()=>{if(window.firebaseHelpers?.subscribe){clearInterval(wait);window.firebaseHelpers.subscribe(async(data)=>{await render(data); const fb2=await checkFirebaseConnection(); if(fb2.ok) setFirebaseStatus('firebaseStatus','connected', fb2.detail);})}},500);
+  }
+})();
 </script></body></html>

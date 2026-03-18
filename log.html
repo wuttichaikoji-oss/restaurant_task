@@ -1,33 +1,13 @@
-<!doctype html><html lang="th"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>LOG / REPORT</title><link rel="stylesheet" href="styles.css"></head><body>
-<header><div class="wrap row space">
-  <div><div class="top-title">LOG / REPORT</div><div id="welcome" class="small"></div></div>
-  <div class="row" id="navLinks"></div>
-</div></header>
+<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>LOG / REPORT</title><link rel="stylesheet" href="styles.css"></head><body>
+<header><div class="wrap row space"><div><div class="top-title">LOG / REPORT</div><div id="welcome" class="small"></div></div><div class="row" id="navLinks"></div></div></header>
 <div class="wrap">
-    <div class="firebase-status" id="firebaseStatus"></div>
-  <div class="stats">
-    <div class="stat"><div class="small">งานปิดแล้วทั้งหมด</div><div class="n" id="rAll">0</div></div>
-    <div class="stat"><div class="small">เวลาเฉลี่ย (นาที)</div><div class="n" id="rAvg">0</div></div>
-    <div class="stat"><div class="small">ปิดงานวันนี้</div><div class="n" id="rToday">0</div></div>
-    <div class="stat"><div class="small">งานเร่งด่วนที่ปิดแล้ว</div><div class="n" id="rUrgent">0</div></div>
-  </div>
-  <div class="panel">
-    <h2 class="section-title">ประวัติงานที่ถูก Close job by FO แล้ว</h2>
-    <div id="logList"></div>
-  </div>
+  <div id="firebaseStatus" class="firebase-inline" style="margin-bottom:14px;"></div>
+  <div class="stats"><div class="stat"><div class="small">งานปิดแล้วทั้งหมด</div><div class="n" id="rAll">0</div></div><div class="stat"><div class="small">เวลาเฉลี่ย (นาที)</div><div class="n" id="rAvg">0</div></div><div class="stat"><div class="small">ปิดงานวันนี้</div><div class="n" id="rToday">0</div></div><div class="stat"><div class="small">งานเร่งด่วนที่ปิดแล้ว</div><div class="n" id="rUrgent">0</div></div></div>
+  <div class="panel"><h2 class="section-title">ประวัติงานที่ถูก Close job by FO แล้ว</h2><div id="logList"></div></div>
 </div>
 <dialog id="taskDialog"><div class="body"><div id="taskDetail"></div><div class="actions"><button class="ghost" onclick="document.getElementById('taskDialog').close()">ปิด</button></div></div></dialog>
 <script src="firebase-config.js"></script><script src="users-config.js"></script><script src="firebase-helpers.js"></script><script src="common.js"></script>
 <script>
-(async()=>{
-  setFirebaseStatus('firebaseStatus','checking');
-  const fb = await checkFirebaseConnection();
-  if(fb.ok) setFirebaseStatus('firebaseStatus','connected', fb.detail);
-  else setFirebaseStatus('firebaseStatus', fb.mode, fb.detail);
-})();
-
 const session = requireRole(['fo','hk','supervisor']);
 document.getElementById('welcome').textContent = 'ผู้ใช้งาน: ' + session.name + ' (' + session.role + ')';
 const nav = document.getElementById('navLinks');
@@ -46,5 +26,13 @@ async function render(dataOverride){
   document.getElementById('logList').innerHTML = logs.map(t=>`<article class="task"><h4>${escapeHtml(t.title)}</h4><div class="meta">${escapeHtml(taskLocationText(t))}</div><div class="meta">FO: ${escapeHtml(t.requestedBy||'-')} • HK: ${escapeHtml(t.assignee||'-')}</div><div class="meta">เปิด: ${fmtDate(t.createdAt)} • ปิด: ${fmtDate(t.closedAt)} • เวลา: ${t.totalMinutes||0} นาที</div><div class="badges">${statusBadge(t)}</div><div class="actions"><button class="good" onclick="openLog('${t.id}')">ดูรายละเอียด</button></div></article>`).join('') || '<div class="small">ยังไม่มี log</div>';
 }
 window.openLog=async id=>{await renderTaskDetail(id,'taskDetail','logs');document.getElementById('taskDialog').showModal();};
-(async()=>{await seedData();await render();if(isFirebaseReady()){const wait=setInterval(()=>{if(window.firebaseHelpers?.subscribe){clearInterval(wait);window.firebaseHelpers.subscribe(render)}},500)}})();
+(async()=>{
+  setFirebaseStatus('firebaseStatus','checking');
+  const fb = await checkFirebaseConnection();
+  if(fb.ok) setFirebaseStatus('firebaseStatus','connected', fb.detail); else setFirebaseStatus('firebaseStatus', fb.mode, fb.detail);
+  await seedData(); await render();
+  if(isFirebaseReady()){
+    const wait=setInterval(()=>{if(window.firebaseHelpers?.subscribe){clearInterval(wait);window.firebaseHelpers.subscribe(async(data)=>{await render(data); const fb2=await checkFirebaseConnection(); if(fb2.ok) setFirebaseStatus('firebaseStatus','connected', fb2.detail);})}},500);
+  }
+})();
 </script></body></html>

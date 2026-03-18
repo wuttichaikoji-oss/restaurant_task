@@ -176,3 +176,14 @@ dialog .body{padding:20px}
   gap:8px;
   flex-wrap:wrap;
 }
+
+.firebase-inline{display:inline-flex;align-items:center;gap:8px;margin-left:10px;vertical-align:middle;flex-wrap:wrap}
+.firebase-inline .small{font-size:11px}
+.firebase-status{display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap}
+.section-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.section-head .section-title{margin:0}
+.kpi-strip{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:14px}
+@media (max-width:760px){.kpi-strip{grid-template-columns:1fr}}
+.kpi-mini{background:linear-gradient(180deg,#17171c,#1d1d24);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+.kpi-mini .n{font-size:22px;font-weight:700;color:var(--accent-2)}
+.task.disabled-action{opacity:.88}

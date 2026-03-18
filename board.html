@@ -1,30 +1,13 @@
-<!doctype html><html lang="th"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>HOUSEKEEPING TASK</title><link rel="stylesheet" href="styles.css"></head><body>
-<header><div class="wrap row space">
-  <div><div class="top-title">HOUSEKEEPING TASK</div><div id="welcome" class="small"></div></div>
-  <div class="row" id="navLinks"></div>
-</div></header>
+<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>HOUSEKEEPING TASK</title><link rel="stylesheet" href="styles.css"></head><body>
+<header><div class="wrap row space"><div><div class="top-title">HOUSEKEEPING TASK</div><div id="welcome" class="small"></div></div><div class="row" id="navLinks"></div></div></header>
 <div class="wrap">
-    <div class="firebase-status" id="firebaseStatus"></div>
-  <div class="stats">
-    <div class="stat"><div class="small">งานทั้งหมด</div><div class="n" id="sAll">0</div></div>
-    <div class="stat"><div class="small">New from FO</div><div class="n" id="sNew">0</div></div>
-    <div class="stat"><div class="small">In Progress</div><div class="n" id="sProg">0</div></div>
-    <div class="stat"><div class="small">Done by HK</div><div class="n" id="sDone">0</div></div>
-  </div>
+  <div id="firebaseStatus" class="firebase-inline" style="margin-bottom:14px;"></div>
+  <div class="stats"><div class="stat"><div class="small">งานทั้งหมด</div><div class="n" id="sAll">0</div></div><div class="stat"><div class="small">New from FO</div><div class="n" id="sNew">0</div></div><div class="stat"><div class="small">In Progress</div><div class="n" id="sProg">0</div></div><div class="stat"><div class="small">Done by HK</div><div class="n" id="sDone">0</div></div></div>
   <div id="board" class="board"></div>
 </div>
 <dialog id="taskDialog"><div class="body"><div id="taskDetail"></div><div class="actions"><button class="ghost" onclick="document.getElementById('taskDialog').close()">ปิด</button></div></div></dialog>
 <script src="firebase-config.js"></script><script src="users-config.js"></script><script src="firebase-helpers.js"></script><script src="common.js"></script>
 <script>
-(async()=>{
-  setFirebaseStatus('firebaseStatus','checking');
-  const fb = await checkFirebaseConnection();
-  if(fb.ok) setFirebaseStatus('firebaseStatus','connected', fb.detail);
-  else setFirebaseStatus('firebaseStatus', fb.mode, fb.detail);
-})();
-
 const session = requireRole(['fo','hk','supervisor']);
 document.getElementById('welcome').textContent = 'ผู้ใช้งาน: ' + session.name + ' (' + session.role + ')';
 const nav = document.getElementById('navLinks');
@@ -42,5 +25,13 @@ async function render(dataOverride){
   document.getElementById('board').innerHTML = STATUSES.map(s=>`<section class="column"><h3>${s} <span class="small">(${tasks.filter(t=>t.status===s).length})</span></h3>${tasks.filter(t=>t.status===s).map(card).join('') || '<div class="small">ไม่มีงาน</div>'}</section>`).join('');
 }
 window.openTask=async id=>{await renderTaskDetail(id,'taskDetail','tasks');document.getElementById('taskDialog').showModal();};
-(async()=>{await seedData();await render();if(isFirebaseReady()){const wait=setInterval(()=>{if(window.firebaseHelpers?.subscribe){clearInterval(wait);window.firebaseHelpers.subscribe(render)}},500)}})();
+(async()=>{
+  setFirebaseStatus('firebaseStatus','checking');
+  const fb = await checkFirebaseConnection();
+  if(fb.ok) setFirebaseStatus('firebaseStatus','connected', fb.detail); else setFirebaseStatus('firebaseStatus', fb.mode, fb.detail);
+  await seedData(); await render();
+  if(isFirebaseReady()){
+    const wait=setInterval(()=>{if(window.firebaseHelpers?.subscribe){clearInterval(wait);window.firebaseHelpers.subscribe(async(data)=>{await render(data); const fb2=await checkFirebaseConnection(); if(fb2.ok) setFirebaseStatus('firebaseStatus','connected', fb2.detail);})}},500);
+  }
+})();
 </script></body></html>
