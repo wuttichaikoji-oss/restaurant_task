@@ -6,6 +6,7 @@
   <div class="row" id="navLinks"></div>
 </div></header>
 <div class="wrap">
+    <div class="firebase-status" id="firebaseStatus"></div>
   <div class="stats">
     <div class="stat"><div class="small">งานปิดแล้วทั้งหมด</div><div class="n" id="rAll">0</div></div>
     <div class="stat"><div class="small">เวลาเฉลี่ย (นาที)</div><div class="n" id="rAvg">0</div></div>
@@ -20,6 +21,13 @@
 <dialog id="taskDialog"><div class="body"><div id="taskDetail"></div><div class="actions"><button class="ghost" onclick="document.getElementById('taskDialog').close()">ปิด</button></div></div></dialog>
 <script src="firebase-config.js"></script><script src="users-config.js"></script><script src="firebase-helpers.js"></script><script src="common.js"></script>
 <script>
+(async()=>{
+  setFirebaseStatus('firebaseStatus','checking');
+  const fb = await checkFirebaseConnection();
+  if(fb.ok) setFirebaseStatus('firebaseStatus','connected', fb.detail);
+  else setFirebaseStatus('firebaseStatus', fb.mode, fb.detail);
+})();
+
 const session = requireRole(['fo','hk','supervisor']);
 document.getElementById('welcome').textContent = 'ผู้ใช้งาน: ' + session.name + ' (' + session.role + ')';
 const nav = document.getElementById('navLinks');

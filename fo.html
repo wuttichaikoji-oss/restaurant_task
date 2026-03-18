@@ -7,6 +7,7 @@
 </div></header>
 <div class="wrap grid grid-2">
   <div class="panel"><h2 class="section-title">เปิดงานให้ HouseKeeping</h2>
+    <div class="firebase-status" id="firebaseStatus"></div>
     <form id="taskForm" class="grid">
       <div><label>ชื่องาน</label><input id="title" required></div>
       <div><label>รายละเอียด</label><textarea id="desc"></textarea></div>
@@ -29,6 +30,13 @@
 <dialog id="taskDialog"><div class="body"><div id="taskDetail"></div><div class="actions"><button class="ghost" onclick="document.getElementById('taskDialog').close()">ปิด</button></div></div></dialog>
 <script src="firebase-config.js"></script><script src="users-config.js"></script><script src="firebase-helpers.js"></script><script src="common.js"></script>
 <script>
+(async()=>{
+  setFirebaseStatus('firebaseStatus','checking');
+  const fb = await checkFirebaseConnection();
+  if(fb.ok) setFirebaseStatus('firebaseStatus','connected', fb.detail);
+  else setFirebaseStatus('firebaseStatus', fb.mode, fb.detail);
+})();
+
 const session=requireRole('fo');
 document.getElementById('welcome').textContent='ผู้ใช้งาน: '+session.name;
 document.getElementById('logoutBtn').onclick=logout;

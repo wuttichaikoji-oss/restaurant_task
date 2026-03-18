@@ -6,8 +6,16 @@
   <div class="row"><a href="board.html" class="ghost">บอร์ดรวม</a><a href="log.html" class="ghost">LOG / Report</a><a href="fo.html" class="ghost">หน้า FO</a><a href="hk.html" class="ghost">หน้า HK</a><button class="ghost" id="logoutBtn">ออกจากระบบ</button></div>
 </div></header>
 <div class="wrap"><div class="panel"><h2 class="section-title">ภาพรวมระบบ</h2><div id="allTasks"></div></div></div>
+    <div class="firebase-status" id="firebaseStatus"></div>
 <script src="firebase-config.js"></script><script src="users-config.js"></script><script src="firebase-helpers.js"></script><script src="common.js"></script>
 <script>
+(async()=>{
+  setFirebaseStatus('firebaseStatus','checking');
+  const fb = await checkFirebaseConnection();
+  if(fb.ok) setFirebaseStatus('firebaseStatus','connected', fb.detail);
+  else setFirebaseStatus('firebaseStatus', fb.mode, fb.detail);
+})();
+
 const session=requireRole('supervisor');
 document.getElementById('welcome').textContent='ผู้ใช้งาน: '+session.name;
 document.getElementById('logoutBtn').onclick=logout;

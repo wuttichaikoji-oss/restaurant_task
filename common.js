@@ -113,3 +113,40 @@ async function renderTaskDetail(id,targetId='taskDetail', source='tasks'){
   <div>${(t.comments||[]).length?t.comments.map(c=>`<div class="task"><div><strong>${escapeHtml(c.by||'-')}</strong> <span class="small">${fmtDate(c.at)}</span></div><div>${escapeHtml(c.text)}</div></div>`).join(''):'<div class="small">ยังไม่มีคอมเมนต์</div>'}</div>`;
 }
 function toast(msg){alert(msg)}
+function setFirebaseStatus(elId, state, detail=''){
+  const el = document.getElementById(elId);
+  if(!el) return;
+  const map = {
+    checking: {label:'กำลังตรวจสอบ Firebase...', cls:'badge'},
+    connected: {label:'เชื่อม Firebase สำเร็จ', cls:'badge ok'},
+    config_only: {label:'พบ config แล้ว แต่ Firebase ยังไม่พร้อม', cls:'badge urgent'},
+    local: {label:'กำลังใช้ Local Mode', cls:'badge urgent'},
+    error: {label:'Firebase มีปัญหา', cls:'badge urgent'}
+  };
+  const item = map[state] || map.error;
+  el.innerHTML = `<span class="${item.cls}">${item.label}</span>${detail ? ` <span class="small">${escapeHtml(detail)}</span>` : ''}`;
+}
+async function checkFirebaseConnection(){
+  try{
+    if(!window.FIREBASE_ENABLED){
+      return {ok:false, mode:'local', detail:'ยังไม่ได้ใส่ค่า Firebase config ครบ'};
+    }
+    let tries = 0;
+    while((!window.firebaseHelpers || !window.firebaseHelpers.getData) && tries < 30){
+      await new Promise(r=>setTimeout(r, 200));
+      tries++;
+    }
+    if(!window.firebaseHelpers || !window.firebaseHelpers.getData){
+      return {ok:false, mode:'config_only', detail:'โหลด Firebase helper ไม่สำเร็จ'};
+    }
+    const data = await window.firebaseHelpers.getData();
+    return {
+      ok:true,
+      mode:'connected',
+      detail:`Tasks: ${(data.tasks||[]).length}, Logs: ${(data.logs||[]).length}`
+    };
+  }catch(err){
+    return {ok:false, mode:'error', detail: err?.message || 'เชื่อมต่อไม่ได้'};
+  }
+}
+
